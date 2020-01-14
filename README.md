@@ -15,20 +15,21 @@
 Live demos: https://mgnsk.github.io/go-wasm-demos/public/
 Most of the stuff except WebGL runs on dev console.
 
-## Environment
+## Setup
 
 To set up the environment, set up direnv on your system (follow the official instructions for your shell) and run:
 * `$ direnv allow .` to allow loading the sandbox host environment.
 * `$ sh setup.sh` to install task manager.
 * `$ tusk sandbox.new` to set up and enter the sandbox shell.
 
-Once in the sandbox, to list the tasks, run: `$ tusk` to see all go related tasks. (Inside the sandbox, tusk is reconfigured to use sandbox.tusk.yml file by default).
-
 Run `$ build-all` to build all wasm apps.
 
 Finally, run `$ tusk go.serve` to serve all list of the apps at `http://localhost:8080`.
 
+In the sandbox, to list the tasks, run: `$ tusk`. (Inside the sandbox, tusk is reconfigured to use sandbox.tusk.yml file by default).
+
 Some commands are still scripts:
+* `$ build-all` builds all wasm apps.
 * `$ render-templates` renders a each app into `public` directory.
 * `$ go-generate` generates all go code. (Not including protos).
 
