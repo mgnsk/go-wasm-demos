@@ -92,7 +92,7 @@ type OrderedSink struct {
 func NewOrderedSink(streamStart uint64) *OrderedSink {
 	return &OrderedSink{
 		streamStart: streamStart,
-		locker:      NewPriorityLocker(0),
+		locker:      NewPriorityLocker(streamStart),
 		out:         make(chan *audiov1.Float32Chunk, 1),
 	}
 }
