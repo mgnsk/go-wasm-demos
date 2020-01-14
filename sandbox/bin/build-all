@@ -2,8 +2,15 @@
 set -Eeuo pipefail
 trap "echo ERR trap fired!" ERR
 
+export GOOS=js
+export GOARCH=wasm
+
+# TODO currently links to all apps
+wavURL="http://localhost:8080/test2.wav"
+#wavURL="https://mgnsk.github.io/go-wasm-demos/public/test2.wav"
+
 for app in $DEVROOT/cmdwasm/*/
 do
     app=$(basename $app)
-    tusk go.build.wasm $app
+    go build -ldflags "-X main.wavURL=$wavURL" -o /app/public/$app/$app.wasm /app/cmdwasm/$app/main.go
 done

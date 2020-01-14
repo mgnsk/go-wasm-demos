@@ -17,7 +17,7 @@ wasmExecJSPath="$(go env GOROOT)/misc/wasm/wasm_exec.js"
 
 echo "# Generating public dirs..."
 
-host="http://localhost:8080/public"
+host="http://localhost:8080"
 #host="https://mgnsk.github.io/go-wasm-demos/public"
 
 # Render public dirs for all wasm apps.
