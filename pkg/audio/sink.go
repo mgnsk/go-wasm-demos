@@ -1,8 +1,9 @@
 package audio
 
 import (
-	"physim/gen/idl/audio/audiov1"
 	"sync/atomic"
+
+	"github.com/mgnsk/go-wasm-demos/gen/idl/audio/audiov1"
 )
 
 // Sink is an audio sink that processes audio chunks using an array of transformers.

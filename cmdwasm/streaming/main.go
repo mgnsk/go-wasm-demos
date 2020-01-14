@@ -11,12 +11,12 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"physim/public/streaming"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/joomcode/errorx"
+	"github.com/mgnsk/go-wasm-demos/public/streaming"
 	"github.com/mgnsk/jsutil"
 	"github.com/mgnsk/jsutil/wrpc"
 )

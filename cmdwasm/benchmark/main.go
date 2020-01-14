@@ -8,11 +8,11 @@ import (
 	"encoding/base64"
 	"io"
 	"io/ioutil"
-	"physim/public/benchmark"
 	"sync"
 	"time"
 
 	"github.com/joomcode/errorx"
+	"github.com/mgnsk/go-wasm-demos/public/benchmark"
 	"github.com/mgnsk/jsutil"
 	"github.com/mgnsk/jsutil/wrpc"
 )

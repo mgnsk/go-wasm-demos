@@ -42,7 +42,7 @@ lint:
 # Code generation directives.
 generate:
   go_options:
-    import_path: physim
+    import_path: github.com/mgnsk/go-wasm-demos
 
     # Extra modifiers to include with Mfile=package.
     extra_modifiers:

@@ -6,10 +6,10 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net/http"
-	"physim/gen/idl/audio/audiov1"
 
 	goaudio "github.com/go-audio/audio"
 	"github.com/go-audio/wav"
+	"github.com/mgnsk/go-wasm-demos/gen/idl/audio/audiov1"
 )
 
 // GetWavChunks fetches a wav file and returns a channel to PCM chunks.

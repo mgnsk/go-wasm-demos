@@ -5,11 +5,11 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"physim/gen/shader"
 	"syscall/js"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/mgnsk/go-wasm-demos/gen/shader"
 	"github.com/mgnsk/jsutil"
 	"github.com/mgnsk/jsutil/array"
 	"github.com/mgnsk/jsutil/webgl"

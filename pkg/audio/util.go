@@ -1,8 +1,9 @@
 package audio
 
 import (
-	"physim/gen/idl/audio/audiov1"
 	"time"
+
+	"github.com/mgnsk/go-wasm-demos/gen/idl/audio/audiov1"
 )
 
 // MustMarshal marshals the audio buffer or panics.

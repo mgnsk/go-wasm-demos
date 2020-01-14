@@ -5,14 +5,14 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"physim/gen/shader"
-	"physim/pkg/gfx"
 	"syscall/js"
 	"time"
 	"unsafe"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/mgnsk/go-wasm-demos/gen/shader"
+	"github.com/mgnsk/go-wasm-demos/pkg/gfx"
 	"github.com/mgnsk/jsutil"
 	"github.com/mgnsk/jsutil/array"
 	"github.com/mgnsk/jsutil/webgl"

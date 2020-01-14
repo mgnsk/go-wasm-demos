@@ -1,7 +1,7 @@
 package audio
 
 import (
-	"physim/gen/idl/audio/audiov1"
+	"github.com/mgnsk/go-wasm-demos/gen/idl/audio/audiov1"
 )
 
 // Gain applies the multiplier to the passed chunk.

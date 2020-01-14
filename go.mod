@@ -1,4 +1,4 @@
-module physim
+module github.com/mgnsk/go-wasm-demos
 
 go 1.13
 
