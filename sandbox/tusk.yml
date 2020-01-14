@@ -1,0 +1,33 @@
+tasks:
+  docker.down:
+    usage: Stop all containers. All docker.* commands include only services defined in docker-compose.yml file.
+    run:
+      - command: docker-compose -f docker-compose.yml down
+
+  docker.clean.containers:
+    usage: Stop and remove all containers, images and any anonymous volumes attached to containers.
+    run:
+      - command: docker-compose -f docker-compose.yml rm --stop --force -v
+
+  docker.clean.images:
+    usage: Stop all containers and remove all images.
+    run:
+      - command: docker-compose -f docker-compose.yml down --rmi all
+
+  docker.clean.volumes:
+    usage: Stop all containers and remove all volumes.
+    run:
+      - command: docker-compose -f docker-compose.yml down -v
+
+  docker.clean:
+    usage: Stop and clean everything but keep images and system cache for fast rebuilds.
+    run:
+      - task: docker.down
+      - task: docker.clean.containers
+      #- task: docker.clean.images
+      - task: docker.clean.volumes
+
+  docker.prune.system:
+    usage: WARNING! Prunes the whole system.
+    run:
+      command: docker system prune --volumes -a

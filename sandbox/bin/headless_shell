@@ -1,0 +1,33 @@
+#!/bin/bash
+set -Eeuo pipefail
+trap "echo ERR trap fired!" ERR
+
+# TODO currently not used
+
+# wasmbrowsertest runs this script as chrome browser, we need to pass parameters to docker 
+
+#TODO must have electron installed on host system to mount the libGLESv2.so
+   # -v /usr/lib/electron/swiftshader/libGLESv2.so:/headless-shell/swiftshader/libGLESv2.so \
+
+# probably has something to do with how docker uses cgroups and has no access to devices.
+# we could depend on the host system gpu (that would work fine for local developer tests) but how would we test shaders in an arbitrary system?
+# would it be possible to run it virtualized with a software gpu?
+# 
+
+# TODO previous comment didn't work
+
+args="$@"
+args="${args/remote-debugging-port=0/remove-debugging-port=9222}"
+
+echo "/app/bin/headless_shell: running chrome with args:"
+echo "${args[*]}"
+
+# docker run --rm -p 9222:9222 \
+#     --network sandbox_default \
+#     --user nobody \
+#     --entrypoint "/headless-shell/headless-shell" \
+#     chromedp/headless-shell \
+#     "${args[*]}" \
+#     --remote-debugging-address=0.0.0.0 \
+#     --no-sandbox \
+#     --disable-gpu

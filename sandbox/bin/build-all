@@ -1,0 +1,9 @@
+#!/bin/bash
+set -Eeuo pipefail
+trap "echo ERR trap fired!" ERR
+
+for app in $DEVROOT/cmdwasm/*/
+do
+    app=$(basename $app)
+    tusk go.build.wasm $app
+done

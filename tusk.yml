@@ -1,0 +1,143 @@
+options:
+  uid:
+    usage: User ID for local images.
+    default:
+      command: id -u
+  gid:
+    usage: Group ID for local images.
+    default: 65535
+  user:
+    usage: Username for local images.
+    default:
+      command: id -un
+  group:
+    usage: Group name for local images.
+    default:
+      command: id -un
+  docker_gid:
+    usage: Group ID of docker group.
+    default:
+      command: getent group docker | cut -d ":" -f3
+
+tasks:
+  go.deps:
+    usage: Download go development dependencies.
+    description: TODO GO111MODULE=off is being used to download source only. TODO check out how the new go release handles this.
+    run:
+      - command: >
+          docker-compose -f ./sandbox/docker-compose.yml exec -e GO111MODULE=off go
+          go get -d -v
+          github.com/gogo/protobuf/gogoproto/...
+          github.com/gogo/googleapis/google/...
+
+  proto.lint:
+    usage: Lint all protobuf definitions using prototool.
+    run:
+      command: >
+        docker-compose -f ./sandbox/docker-compose.yml run --rm -u ${uid}:${gid} prototool prototool lint
+
+  proto.gen:
+    usage: Generate code from protobufs
+    run:
+      - command: >
+          docker-compose -f ./sandbox/docker-compose.yml run --rm -u ${uid}:${gid} prototool prototool generate
+      # workarounds
+      - command: rm -rf ./gen/github.com
+
+  sandbox.build:
+    usage: Build sandbox containers.
+    run:
+      - command: >
+          docker-compose -f ./sandbox/docker-compose.yml build
+          --force-rm
+          --parallel
+          --build-arg USER=${user}
+          --build-arg GROUP=${group}
+          --build-arg UID=${uid}
+          --build-arg GID=${gid}
+          --build-arg DOCKER_GID=${docker_gid}
+      - command: docker image prune -f
+
+  sandbox.up:
+    usage: Start the sandbox containers.
+    run:
+      - command: docker-compose -f ./sandbox/docker-compose.yml up -d go
+      - command: >
+          if [ -f "~/.bash_aliases" ]; then docker cp ~/.bash_aliases "$(docker-compose -f ./sandbox/docker-compose.yml ps -q go):/home/${user}/.bash_aliases"; fi
+
+  sandbox.down:
+    usage: Stop the containers.
+    run:
+      - command: tusk -f ./sandbox/tusk.yml docker.down
+
+  sandbox.gen:
+    usage: Run application generation.
+    run:
+      - command: >
+          docker-compose -f ./sandbox/docker-compose.yml exec go
+          render-templates
+      - command: >
+          docker-compose -f ./sandbox/docker-compose.yml exec go
+          go-generate
+
+  sandbox.gen.clean:
+    usage: Clean application generated files and directories.
+    run:
+      - command: rm -rf gen
+      - command: rm -rf public
+
+  sandbox.clean:
+    usage: Run down and clean but keep docker images and system cache for fast rebuilds.
+    run:
+      - task: sandbox.down
+      - command: tusk -f ./sandbox/tusk.yml docker.clean
+      - task: sandbox.gen.clean
+
+  sandbox.logs:
+    usage: Follow logs for all containers.
+    run:
+      - command: docker-compose -f ./sandbox/docker-compose.yml logs -f -t --tail="all"
+
+  sandbox.bash:
+    usage: Get a bash shell into the go container.
+    description: Then run tusk go.test /app/... to test all packages for linux os.
+    run:
+      - command: >
+          docker-compose -f ./sandbox/docker-compose.yml exec go
+          /bin/bash
+
+  sandbox.new:
+    usage: Destroy, rebuild and enter the go container.
+    run:
+      - task: sandbox.clean
+      - task: sandbox.build
+      - task: sandbox.up
+      - task: go.deps
+      - task: proto.gen
+      - task: sandbox.gen
+      - task: sandbox.bash
+
+  sandbox.regenerate:
+    usage: Regenerate the sandbox but must have already run sandbox.new before to get go.deps.
+    description: Also rebuilds go Dockerfile if any changes were made.
+    run:
+      - task: sandbox.build
+      - task: sandbox.up
+      - task: proto.gen
+      - task: sandbox.gen
+      - task: sandbox.bash
+
+  # TODO: wasm tests currently run on the host system
+  # work needs to be done in order to containerize this
+
+  local.test.node:
+    usage: Run tests on nodejs. tusk local.test.node ./... from the host system.
+    description: Care must be taken to keep the apps runnable on browsers too.
+    args:
+      pkg:
+        usage: Package
+    run:
+      - set-environment:
+          GOOS: js
+          GOARCH: wasm
+      - command: go test -v -count=1 -exec="$(go env GOROOT)/misc/wasm/go_js_wasm_exec" ${pkg}

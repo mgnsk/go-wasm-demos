@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "/app"
+		}
+	],
+	"settings": {
+		"go.toolsEnvVars": {
+			"GOOS": "js",
+			"GOARCH": "wasm"
+		},
+		"protoc": {
+			"options": [
+				"--proto_path=${env.GOPATH}/src"
+			]
+		}
+	}
+}

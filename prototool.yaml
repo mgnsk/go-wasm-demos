@@ -1,0 +1,67 @@
+# Protoc directives.
+protoc:
+  version: 3.11.1
+  allow_unused_imports: false
+  includes:
+    #- /go/src/github.com/grpc-ecosystem/grpc-gateway
+    - /go/src/github.com/gogo/googleapis
+    - /go/src/github.com/gogo/protobuf/protobuf
+    - /go/src/github.com/gogo/protobuf/gogoproto
+
+  #file_header:
+  #  content: |
+  #    //
+  #    // Acme, Inc. (c) 2019
+  #    //
+  #  is_commented: true
+
+# Lint directives.
+lint:
+  group: uber2
+  rules:
+    # Disable mostly unrelated linters.
+    remove:
+      - FILE_OPTIONS_CSHARP_NAMESPACE_SAME_IN_DIR
+      - FILE_OPTIONS_EQUAL_CSHARP_NAMESPACE_CAPITALIZED
+      - FILE_OPTIONS_EQUAL_JAVA_MULTIPLE_FILES_TRUE
+      - FILE_OPTIONS_EQUAL_JAVA_OUTER_CLASSNAME_PROTO_SUFFIX
+      - FILE_OPTIONS_EQUAL_JAVA_PACKAGE_PREFIX
+      - FILE_OPTIONS_EQUAL_OBJC_CLASS_PREFIX_ABBR
+      - FILE_OPTIONS_EQUAL_PHP_NAMESPACE_CAPITALIZED
+      - FILE_OPTIONS_JAVA_MULTIPLE_FILES_SAME_IN_DIR
+      - FILE_OPTIONS_JAVA_PACKAGE_SAME_IN_DIR
+      - FILE_OPTIONS_OBJC_CLASS_PREFIX_SAME_IN_DIR
+      - FILE_OPTIONS_PHP_NAMESPACE_SAME_IN_DIR
+      - FILE_OPTIONS_REQUIRE_CSHARP_NAMESPACE
+      - FILE_OPTIONS_REQUIRE_JAVA_MULTIPLE_FILES
+      - FILE_OPTIONS_REQUIRE_JAVA_OUTER_CLASSNAME
+      - FILE_OPTIONS_REQUIRE_JAVA_PACKAGE
+      - FILE_OPTIONS_REQUIRE_OBJC_CLASS_PREFIX
+      - FILE_OPTIONS_REQUIRE_PHP_NAMESPACE
+
+# Code generation directives.
+generate:
+  go_options:
+    import_path: physim
+
+    # Extra modifiers to include with Mfile=package.
+    extra_modifiers:
+      google/protobuf/timestamp.proto: github.com/gogo/protobuf/types
+      google/protobuf/duration.proto: github.com/gogo/protobuf/types
+      google/protobuf/empty.proto: github.com/gogo/protobuf/types
+      google/api/annotations.proto: github.com/gogo/googleapis/google/api
+      google/protobuf/field_mask.proto: github.com/gogo/protobuf/types
+
+  plugins:
+    - name: gogoslick
+      type: gogo
+      flags: plugins=grpc
+      output: ./gen
+    # - name: grpc-gateway
+    #   type: go
+    #   output: ./app
+    # - name: grpc-web
+    #   flags: import_style=typescript,mode=grpcweb
+    #   output: ./frontend/generated
+    # - name: swagger
+    #   output: ./swagger

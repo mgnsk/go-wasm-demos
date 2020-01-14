@@ -1,0 +1,70 @@
+version: "3.7"
+
+networks:
+  sandbox:
+
+x-build-args: &build-args
+  context: .
+  args:
+    - USER
+    - GROUP
+    - UID
+    - GID
+
+x-go-volumes: &go-volumes
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - /usr/bin/docker:/usr/bin/docker
+    - ../:/app
+
+x-go-common: &go-common
+  stdin_open: yes
+  tty: yes
+  networks:
+    - sandbox
+
+services:
+  # Base go image
+  go:
+    image: machine/go
+    hostname: go
+    container_name: go
+    build:
+      dockerfile: go/Dockerfile
+      #target: sandbox
+      <<: *build-args
+    <<: *go-common
+    <<: *go-volumes
+    ports:
+      - 8080:8080
+
+  prototool:
+    image: uber/prototool
+    environment:
+      - GOPATH=/go
+    volumes:
+      # Prototool needs the project root dir.
+      - ../:/work
+      - /work/.direnv
+      - ../.direnv:/go
+  # TODO
+  # headless-shell:
+  #   image: chromedp/headless-shell:latest
+  #   container_name: headless-shell
+  #   user: nobody
+  #   entrypoint: /headless-shell/headless-shell
+  #   networks:
+  #     - sandbox
+  # chrome:
+  #   image: browserless/chrome
+  #   container_name: chrome
+  #   restart: always
+  #   networks:
+  #     - sandbox
+  #   ports:
+  #     - 3000:3000
+  #   environment:
+  #     - WORKSPACE_DELETE_EXPIRED=true
+  #     - WORKSPACE_EXPIRE_DAYS=1
+  #     - DEBUG=browserless/chrome*
+  #     - EXIT_ON_HEALTH_FAILURE=true

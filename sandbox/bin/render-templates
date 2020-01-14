@@ -1,0 +1,46 @@
+#!/bin/bash
+set -Eeuo pipefail
+trap "echo ERR trap fired!" ERR
+
+GOROOT=$(go env GOROOT)
+
+# Hack around the templatetool for single file single template rendering
+# The template name and the filename are the same.
+function render {
+    export TPL_GLOB=$1
+    tplName=$(basename $1)
+    shift
+    templatetool $tplName "$@"
+}
+
+wasmExecJSPath="$(go env GOROOT)/misc/wasm/wasm_exec.js"
+
+echo "# Generating public dirs..."
+
+# Render public dirs for all wasm apps.
+rm -rf $DEVROOT/public/
+
+for app in $DEVROOT/cmdwasm/*/
+do
+    app=$(basename $app)
+
+    echo "$app"
+
+    mkdir -p $DEVROOT/public/$app/
+
+    render $DEVROOT/template/index.js.tpl \
+        --WasmExecJS "$(cat $wasmExecJSPath)" \
+        --WasmURL "http://localhost:8080/$app/$app.wasm" > $DEVROOT/public/$app/index.js
+
+    render $DEVROOT/template/index.js.go.tpl \
+        --Package "$app" \
+        --IndexJS "$(cat /app/public/$app/index.js | base64)" > $DEVROOT/public/$app/index.js.go
+
+    render $DEVROOT/template/index.html.tpl > $DEVROOT/public/$app/index.html
+done
+
+echo "# Copying static data..."
+
+# Copy static data.
+cp $DEVROOT/test2.wav $DEVROOT/public/test2.wav
+cp $DEVROOT/third_party/js/stats.min.js $DEVROOT/public/stats.min.js
