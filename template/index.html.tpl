@@ -2,7 +2,7 @@
 <html>
     <head>
 		<meta charset="utf-8"/>
-		<script src="/stats.min.js"></script>
+		<script src="../stats.min.js"></script>
 		<script src="index.js"></script>
 		<style type="text/css">
 			body {

@@ -125,7 +125,7 @@ func startAudio(ctx context.Context) {
 			writer := textproto.NewWriter(bufio.NewWriter(out))
 
 			// Currently the wav decoder requires the entire file to be downloaded before it can start producing chunks.
-			chunks := audio.GetWavChunks("http://localhost:8080/test2.wav", chunkSize)
+			chunks := audio.GetWavChunks("https://mgnsk.github.io/go-wasm-demos/public/test2.wav", chunkSize)
 
 			// Buffer up to x ms into future.
 			tb := audio.NewTimeBuffer(bufferDuration)
