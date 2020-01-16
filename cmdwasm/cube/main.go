@@ -45,27 +45,6 @@ var indicesNative = []uint16{
 	16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
 }
 
-// const vertShaderCode = `
-// attribute vec3 position;
-// uniform mat4 Pmatrix;
-// uniform mat4 Vmatrix;
-// uniform mat4 Mmatrix;
-// attribute vec3 color;
-// varying vec3 vColor;
-
-// void main(void) {
-// 	gl_Position = Pmatrix*Vmatrix*Mmatrix*vec4(position, 1.);
-// 	vColor = color;
-// }
-// `
-// const fragShaderCode = `
-// precision mediump float;
-// varying vec3 vColor;
-// void main(void) {
-// 	gl_FragColor = vec4(vColor, 1.);
-// }
-// `
-
 var (
 	width  int
 	height int
@@ -75,6 +54,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano()) // initialize global pseudo random generator
 }
 
+// TODO haven't really thought of panic handling yet.
 func check(err error) {
 	if err != nil {
 		panic(err)
@@ -151,12 +131,6 @@ func main() {
 
 	jsutil.ConsoleLog(shaderProgram.Uniforms["Pmatrix"].Location())
 	//	spew.Dump(p.Uniforms)
-
-	// Create a shader program object to store the combined shader program
-	// shaderProgram := gl.Ctx().Call("createProgram")
-	// gl.Ctx().Call("attachShader", shaderProgram, vertShader)
-	// gl.Ctx().Call("attachShader", shaderProgram, fragShader)
-	// gl.Ctx().Call("linkProgram", shaderProgram)
 
 	// Associate attributes to vertex shader
 

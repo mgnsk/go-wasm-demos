@@ -13,6 +13,8 @@ require (
 	github.com/joomcode/errorx v1.0.0
 	github.com/mgnsk/jsutil v0.0.0-20200114185755-a279821e4924
 	github.com/mgnsk/templatetool v0.0.0-20200113221214-742721118c26 // indirect
+	github.com/onsi/ginkgo v1.11.0
+	github.com/onsi/gomega v1.8.1
 	github.com/stretchr/testify v1.4.0 // indirect
 	golang.org/x/image v0.0.0-20191214001246-9130b4cfad52 // indirect
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect

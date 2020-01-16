@@ -75,13 +75,7 @@ func (c *Camera) Move(direction MoveDirection) {
 }
 
 func (c *Camera) dirAxis() mgl32.Vec3 {
-	direction := mgl32.Vec3{
-		c.target.X() - c.eye.X(),
-		c.target.Y() - c.eye.Y(),
-		c.target.Z() - c.eye.Z(),
-	}
-
-	return direction.Normalize()
+	return c.target.Sub(c.eye).Normalize()
 }
 
 func (c *Camera) pitchAxis() mgl32.Vec3 {
