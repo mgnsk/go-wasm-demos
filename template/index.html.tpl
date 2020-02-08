@@ -13,6 +13,6 @@
 		</style>
 	</head>
 <body>
-	<canvas id="gocanvas"></canvas>
+	<canvas id="{{.CanvasID}}"></canvas>
 </body>
 </html>

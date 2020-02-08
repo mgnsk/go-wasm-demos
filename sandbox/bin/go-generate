@@ -1,5 +1,10 @@
 #!/bin/bash
-set -Eeuo pipefail
-trap "echo ERR trap fired!" ERR
+trap onerr ERR
+
+onerr(){ while caller $((n++)); do :; done; }
+
+set -o errexit
+set -o pipefail
+set -o nounset
 
 go generate -x /app/...
