@@ -1,6 +1,6 @@
 # Protoc directives.
 protoc:
-  version: 3.11.1
+  version: 3.11.3
   allow_unused_imports: false
   includes:
     #- /go/src/github.com/grpc-ecosystem/grpc-gateway

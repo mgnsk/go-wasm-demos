@@ -84,6 +84,8 @@ func main() {
 	canvas.Set("width", width)
 	canvas.Set("height", height)
 
+	jsutil.ConsoleLog(canvas)
+
 	gl, err := webgl.NewGL(canvas)
 	if err != nil {
 		js.Global().Call("alert", err.Error())

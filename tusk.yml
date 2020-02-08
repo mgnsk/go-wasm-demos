@@ -26,7 +26,7 @@ tasks:
     run:
       - command: >
           docker-compose -f ./sandbox/docker-compose.yml exec -e GO111MODULE=off go
-          go get -d -v
+          go get -u -d -v
           github.com/gogo/protobuf/gogoproto/...
           github.com/gogo/googleapis/google/...
 
