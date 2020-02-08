@@ -12,9 +12,6 @@
 * `streaming` - Unix-y text processing on wrpc pipes.
 * `triangle` - 2D triangle using webgl.
 
-Live demos: https://mgnsk.github.io/go-wasm-demos/public/
-Most of the stuff except WebGL runs on dev console.
-
 ## Setup
 
 To set up the environment, set up direnv on your system (follow the official instructions for your shell) and run:
