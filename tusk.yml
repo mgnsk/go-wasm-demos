@@ -108,6 +108,7 @@ tasks:
 
   sandbox.new:
     usage: Destroy, rebuild and enter the go container.
+    description: In the container run `$ build-all` and `$ tusk go.serve` to serve the applications.
     run:
       - task: sandbox.clean
       - task: sandbox.build

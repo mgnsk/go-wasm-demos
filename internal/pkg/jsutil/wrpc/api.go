@@ -84,8 +84,8 @@ func Go(in io.Reader, out io.WriteCloser, f RemoteCall) {
 	}()
 }
 
-// GoChain runs goroutines in a chain, piping each worker's output into next input.
-func GoChain(in io.Reader, out io.WriteCloser, calls ...RemoteCall) {
+// GoPipe runs goroutines in a chain, piping each worker's output into next input.
+func GoPipe(in io.Reader, out io.WriteCloser, calls ...RemoteCall) {
 	prevOutReader := in
 	for i, f := range calls {
 		if i == len(calls)-1 {

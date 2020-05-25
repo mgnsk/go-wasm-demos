@@ -68,6 +68,7 @@ func float32SliceFromMat4(m mgl32.Mat4) []float32 {
 }
 
 func main() {
+	// Sanity check.
 	var cb js.Func
 	cb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		fmt.Println("button clicked")
@@ -88,8 +89,7 @@ func main() {
 
 	gl, err := webgl.NewGL(canvas)
 	if err != nil {
-		js.Global().Call("alert", err.Error())
-		panic(err)
+		jsutil.AlertPanic(err)
 	}
 
 	// WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)

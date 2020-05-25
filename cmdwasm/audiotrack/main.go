@@ -172,7 +172,7 @@ func startAudio(ctx context.Context) {
 
 	// Master tracks.
 	masterReader, masterWriter := wrpc.Pipe()
-	wrpc.GoChain(nil, masterWriter, audioDecoder, audioPassthrough)
+	wrpc.GoPipe(nil, masterWriter, audioDecoder, audioPassthrough)
 	reader := textproto.NewReader(bufio.NewReader(masterReader))
 
 	audioCtx := js.Global().Get("AudioContext").New()

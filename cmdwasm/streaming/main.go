@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/joomcode/errorx"
-	"github.com/mgnsk/go-wasm-demos/public/streaming"
 	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/wrpc"
+	"github.com/mgnsk/go-wasm-demos/public/streaming"
 )
 
 type stringGenArg int
@@ -164,7 +164,7 @@ func browser() {
 	outputReader, remoteWriter := wrpc.Pipe()
 
 	// Schedule 3 workers to start streaming
-	wrpc.GoChain(b, remoteWriter, stringGeneratorWorker, upperCaseWorker, reverseWorker)
+	wrpc.GoPipe(b, remoteWriter, stringGeneratorWorker, upperCaseWorker, reverseWorker)
 
 	scanner := bufio.NewScanner(outputReader)
 	for scanner.Scan() {

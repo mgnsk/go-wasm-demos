@@ -43,6 +43,12 @@ func Sdump(args ...interface{}) string {
 	return spew.Sdump(args...)
 }
 
+// AlertPanic alerts and panics.
+func AlertPanic(v interface{}) {
+	js.Global().Call("alert", v)
+	panic(v)
+}
+
 // SliceToByteSlice creates a slice of bytes from numeric slices.
 func SliceToByteSlice(s interface{}) (b []byte) {
 	var h *reflect.SliceHeader
