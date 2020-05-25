@@ -16,9 +16,9 @@ import (
 	"github.com/mgnsk/go-wasm-demos/gen/idl/audio/audiov1"
 	"github.com/mgnsk/go-wasm-demos/pkg/audio"
 	"github.com/mgnsk/go-wasm-demos/public/audiotrack"
-	"github.com/mgnsk/jsutil"
-	"github.com/mgnsk/jsutil/array"
-	"github.com/mgnsk/jsutil/wrpc"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil/wrpc"
 )
 
 var wavURL string

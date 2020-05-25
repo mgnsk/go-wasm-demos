@@ -13,9 +13,9 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/mgnsk/go-wasm-demos/gen/shader"
 	"github.com/mgnsk/go-wasm-demos/pkg/gfx"
-	"github.com/mgnsk/jsutil"
-	"github.com/mgnsk/jsutil/array"
-	"github.com/mgnsk/jsutil/webgl"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil/webgl"
 )
 
 var (

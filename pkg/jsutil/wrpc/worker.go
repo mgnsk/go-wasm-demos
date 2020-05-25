@@ -6,7 +6,7 @@ import (
 	"context"
 	"syscall/js"
 
-	"github.com/mgnsk/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
 )
 
 func ack(value js.Value) {

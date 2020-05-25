@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/joomcode/errorx"
-	"github.com/mgnsk/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
 )
 
 // IndexJS boots up webworker go main.

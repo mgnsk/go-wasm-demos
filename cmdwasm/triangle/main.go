@@ -10,9 +10,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mgnsk/go-wasm-demos/gen/shader"
-	"github.com/mgnsk/jsutil"
-	"github.com/mgnsk/jsutil/array"
-	"github.com/mgnsk/jsutil/webgl"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil/webgl"
 )
 
 var (
