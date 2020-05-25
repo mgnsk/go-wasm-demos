@@ -3,7 +3,6 @@
 package webgl
 
 import (
-	"errors"
 	"fmt"
 	"syscall/js"
 	"unsafe"
@@ -88,13 +87,9 @@ func NewGL(canvas js.Value) (*GL, error) {
 
 	ctx := canvas.Call("getContext", "webgl2")
 
-	if ctx == js.Undefined() {
+	// TODO brush up on js type checking.
+	if ctx.IsUndefined() || ctx.IsNull() {
 		panic("WebGL version 2 (OpenGL ES 3.0) support missing")
-	}
-
-	// once again
-	if ctx == js.Null() {
-		return nil, errors.New("WebGL unavailable")
 	}
 
 	gl.ctx = ctx
