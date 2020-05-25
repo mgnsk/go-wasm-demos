@@ -12,7 +12,7 @@ require (
 	github.com/golang/protobuf v1.3.3
 	github.com/joomcode/errorx v1.0.0
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/mgnsk/jsutil v0.0.0-20200208153227-5b96247631ad // indirect
+	github.com/mgnsk/jsutil v0.0.0-20200208153227-5b96247631ad
 	github.com/mgnsk/templatetool v0.0.0-20200119145848-8c35ab07dea7 // indirect
 	github.com/stretchr/testify v1.4.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect

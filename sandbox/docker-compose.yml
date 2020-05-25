@@ -3,38 +3,28 @@ version: "3.7"
 networks:
   sandbox:
 
-x-build-args: &build-args
-  context: .
-  args:
-    - USER
-    - GROUP
-    - UID
-    - GID
-
-x-go-volumes: &go-volumes
-  volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
-    - /usr/bin/docker:/usr/bin/docker
-    - ../:/app
-
-x-go-common: &go-common
-  stdin_open: yes
-  tty: yes
-  networks:
-    - sandbox
-
 services:
   # Base go image
   go:
-    image: machine/go
+    image: mgnsk/go-web-base
     hostname: go
     container_name: go
     build:
-      dockerfile: go/Dockerfile
+      context: ./go
+      args:
+        - USER
+        - GROUP
+        - UID
+        - GID
       #target: sandbox
-      <<: *build-args
-    <<: *go-common
-    <<: *go-volumes
+    stdin_open: yes
+    tty: yes
+    networks:
+      - sandbox
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - ../:/app
     ports:
       - 8080:8080
 
