@@ -8,7 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/mgnsk/go-wasm-demos/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/array"
 )
 
 type GLType int

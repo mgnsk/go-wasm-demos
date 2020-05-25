@@ -6,7 +6,7 @@ import (
 	"context"
 	"syscall/js"
 
-	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
 )
 
 func ack(value js.Value) {
@@ -32,7 +32,7 @@ func RunServer(ctx context.Context) {
 
 		// Add the main thread port.
 		mainPort := data.Get("main_port")
-		if mainPort != js.Undefined() {
+		if !mainPort.IsUndefined() {
 			// Set up the main port that receives commands from main thread.
 			NewMessagePort(mainPort)
 
@@ -42,7 +42,7 @@ func RunServer(ctx context.Context) {
 
 		// Start the scheduler to specified port.
 		startScheduler := data.Get("start_scheduler")
-		if jsutil.IsWorker && startScheduler != js.Undefined() {
+		if jsutil.IsWorker && !startScheduler.IsUndefined() {
 			networkPort := data.Get("port")
 			np := NewMessagePort(networkPort)
 

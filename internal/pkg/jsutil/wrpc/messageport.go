@@ -10,8 +10,8 @@ import (
 	"syscall/js"
 
 	"github.com/joomcode/errorx"
-	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
-	"github.com/mgnsk/go-wasm-demos/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/array"
 )
 
 // MessagePort enables duplex communication with any js object
@@ -89,14 +89,14 @@ func (port *MessagePort) getEventHandlers() (onerror, onmessage, onmessageerror 
 		// TODO assert that args are valid.
 		data := args[0].Get("data")
 
-		if data.Get("ready") != js.Undefined() {
+		if !data.Get("ready").IsUndefined() {
 			go func() {
 				port.remoteReady <- struct{}{}
 			}()
 			return nil
 		}
 
-		if data.Get("ack") != js.Undefined() {
+		if !data.Get("ack").IsUndefined() {
 			go func() {
 				port.ack <- struct{}{}
 			}()
@@ -104,8 +104,7 @@ func (port *MessagePort) getEventHandlers() (onerror, onmessage, onmessageerror 
 		}
 
 		// Handle port close from other side and start emitting EOF.
-		EOF := data.Get("EOF")
-		if EOF != js.Undefined() {
+		if !data.Get("EOF").IsUndefined() {
 			// Set the EOF flag for Write. It does not use the pipe.
 			port.isEOF = true
 			port.cancel()
@@ -117,7 +116,7 @@ func (port *MessagePort) getEventHandlers() (onerror, onmessage, onmessageerror 
 
 		// Remote call.
 		rc := data.Get("rc")
-		if jsutil.IsWorker && rc != js.Undefined() {
+		if jsutil.IsWorker && !rc.IsUndefined() {
 
 			call := newCallFromJS(
 				data.Get("rc"),
@@ -150,7 +149,7 @@ func (port *MessagePort) getEventHandlers() (onerror, onmessage, onmessageerror 
 
 		// ArrayBuffer data message.
 		arr := data.Get("arr")
-		if arr != js.Undefined() {
+		if !arr.IsUndefined() {
 			go func() {
 				// Ack enables blocking write calls on the other side.
 				defer ack(port.value)
