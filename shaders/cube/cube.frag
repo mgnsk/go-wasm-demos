@@ -2,10 +2,11 @@
 
 precision mediump float;
 
-uniform vec3 vColor;
+in vec3 vColor;
 
-out vec4 fragColor;
+// to follow the OpenGL spec.
+out vec4 FragColor;
+
 void main(void) {
-	// TODO the color doesn't work atm
-	fragColor = vec4(vColor, 1.);
+	FragColor = vec4(vColor, 1.);
 }

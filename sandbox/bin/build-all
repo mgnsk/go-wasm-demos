@@ -18,5 +18,6 @@ wavURL="http://localhost:8080/test2.wav"
 for app in /app/cmdwasm/*/
 do
     app=$(basename $app)
+    echo "building $app"
     go build -ldflags "-X main.wavURL=$wavURL" -o /app/public/$app/$app.wasm /app/cmdwasm/$app/main.go
 done

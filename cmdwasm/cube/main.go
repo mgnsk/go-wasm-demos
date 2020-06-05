@@ -12,10 +12,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/mgnsk/go-wasm-demos/gen/shader"
-	"github.com/mgnsk/go-wasm-demos/pkg/gfx"
-	"github.com/mgnsk/jsutil"
-	"github.com/mgnsk/jsutil/array"
-	"github.com/mgnsk/jsutil/webgl"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/gfx"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/webgl"
 )
 
 var (
@@ -68,6 +68,7 @@ func float32SliceFromMat4(m mgl32.Mat4) []float32 {
 }
 
 func main() {
+	// Sanity check.
 	var cb js.Func
 	cb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		fmt.Println("button clicked")
@@ -88,8 +89,7 @@ func main() {
 
 	gl, err := webgl.NewGL(canvas)
 	if err != nil {
-		js.Global().Call("alert", err.Error())
-		panic(err)
+		jsutil.AlertPanic(err)
 	}
 
 	// WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)

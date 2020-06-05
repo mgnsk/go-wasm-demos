@@ -14,11 +14,11 @@ import (
 
 	"github.com/joomcode/errorx"
 	"github.com/mgnsk/go-wasm-demos/gen/idl/audio/audiov1"
-	"github.com/mgnsk/go-wasm-demos/pkg/audio"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/audio"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/wrpc"
 	"github.com/mgnsk/go-wasm-demos/public/audiotrack"
-	"github.com/mgnsk/jsutil"
-	"github.com/mgnsk/jsutil/array"
-	"github.com/mgnsk/jsutil/wrpc"
 )
 
 var wavURL string
@@ -153,7 +153,7 @@ func startAudio(ctx context.Context) {
 
 			forEachChunk(reader, func(chunk *audiov1.Float32Chunk) {
 				// Apply gain FX.
-				audio.Gain(chunk, 1.5)
+				audio.Gain(chunk, 0.5)
 				mustWriteChunk(writer, chunk)
 			})
 		})
@@ -172,36 +172,34 @@ func startAudio(ctx context.Context) {
 
 	// Master tracks.
 	masterReader, masterWriter := wrpc.Pipe()
-	wrpc.GoChain(nil, masterWriter, audioDecoder, audioPassthrough)
+	wrpc.GoPipe(nil, masterWriter, audioDecoder, audioPassthrough)
 	reader := textproto.NewReader(bufio.NewReader(masterReader))
 
 	audioCtx := js.Global().Get("AudioContext").New()
 	player := js.Global().Get("PCMPlayer").New(audioCtx)
 
 	forEachChunk(reader, func(chunk *audiov1.Float32Chunk) {
-		go func() {
-			// TODO: It didn't make a difference if I sent
-			// the channels together or separately.
-			// Should rather try an URL object approach for some MIME type.
-			left := make([]float32, len(chunk.Samples)/2)
-			right := make([]float32, len(chunk.Samples)/2)
+		// TODO: It didn't make a difference if I sent
+		// the channels together or separately.
+		// Should rather try an URL object approach for some MIME type.
+		left := make([]float32, len(chunk.Samples)/2)
+		right := make([]float32, len(chunk.Samples)/2)
 
-			for i, j := 0, 0; i < len(chunk.Samples)/2; i, j = i+1, j+2 {
-				left[i] = chunk.Samples[j]
-				right[i] = chunk.Samples[j+1]
-			}
+		for i, j := 0, 0; i < len(chunk.Samples)/2; i, j = i+1, j+2 {
+			left[i] = chunk.Samples[j]
+			right[i] = chunk.Samples[j+1]
+		}
 
-			arrLeft, err := array.CreateBufferFromSlice(left)
-			if err != nil {
-				panic(err)
-			}
+		arrLeft, err := array.CreateBufferFromSlice(left)
+		if err != nil {
+			panic(err)
+		}
 
-			arrRight, err := array.CreateBufferFromSlice(right)
-			if err != nil {
-				panic(err)
-			}
+		arrRight, err := array.CreateBufferFromSlice(right)
+		if err != nil {
+			panic(err)
+		}
 
-			player.Call("playNext", arrLeft.Float32Array(), arrRight.Float32Array())
-		}()
+		player.Call("playNext", arrLeft.Float32Array(), arrRight.Float32Array())
 	})
 }
