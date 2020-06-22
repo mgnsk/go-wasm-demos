@@ -15,5 +15,3 @@ The package provides easy interfaces for launching remote calls on workers:
 `Go(in io.Reader, out io.WriteCloser, f RemoteCall)` and for chaining workers by connecting each output to next input and passing `out` directly to the final worker: `GoPipe(in io.Reader, out io.WriteCloser, calls ...RemoteCall)`
 
 By having such an interface combined with the mesh network, it allows to implement any protocols on top of it. Even to go as far as to run a gRPC server as a worker call and having it schedule a call [containing the gRPC client code calling the server back] to another worker. I tried a pure `net.Conn` approach at first and ran a gRPC setup on top of that. Although it worked well with `gogoproto` custom marshaling (In a raw audio application there was a noticable difference over reflection based marshaling). I instead implemented the MessagePort API directly as blocking `io.ReadWriteCloser` pipes keeping the higher abstractions open.
-
-Demos available at: https://github.com/mgnsk/go-wasm-demos
