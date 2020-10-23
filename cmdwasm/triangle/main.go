@@ -31,7 +31,6 @@ func check(err error) {
 }
 
 func main() {
-
 	var cb js.Func
 	cb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		fmt.Println("button clicked")
@@ -62,7 +61,7 @@ func main() {
 	jsutil.ConsoleLog(s)
 
 	//// VERTEX BUFFER ////
-	var verticesNative = []float32{
+	verticesNative := []float32{
 		-0.5, 0.5, 0,
 		-0.5, -0.5, 0,
 		0.5, -0.5, 0,
@@ -74,7 +73,7 @@ func main() {
 	jsutil.ConsoleLog(vertexBuffer)
 
 	//// INDEX BUFFER ////
-	var indicesNative = []uint32{
+	indicesNative := []uint32{
 		2, 1, 0,
 	}
 	indexArr := array.Must(array.CreateTypedArrayFromSlice(indicesNative))
@@ -89,6 +88,8 @@ func main() {
 	fragShader := shader.Shaders["triangle/triangle.frag"]
 
 	attribs := []string{"coordinates"}
+
+	spew.Dump(vertShader)
 
 	triangleProgram, err := webgl.CreateProgram(gl, vertShader, fragShader, attribs)
 	check(err)

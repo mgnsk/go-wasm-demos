@@ -95,8 +95,10 @@ func mustWriteChunk(writer *textproto.Writer, chunk *audiov1.Float32Chunk) {
 
 // TODO currently quite inefficient processing
 
-const chunkSize = 4 * 1024
-const bufferDuration = 200 * time.Millisecond
+const (
+	chunkSize      = 4 * 1024
+	bufferDuration = 200 * time.Millisecond
+)
 
 func createWorkers(count int) {
 	workerWg := &sync.WaitGroup{}
@@ -112,7 +114,6 @@ func createWorkers(count int) {
 }
 
 func startAudio(ctx context.Context) {
-
 	// Create worker functions.
 
 	createWorkers(4)

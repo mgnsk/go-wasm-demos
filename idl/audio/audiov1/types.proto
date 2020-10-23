@@ -6,34 +6,33 @@ option go_package = "audiov1";
 
 // import "protoc-gen-swagger/options/annotations.proto";
 // import "google/api/annotations.proto";
-import "gogo.proto";
-
+// import "gogo.proto";
 
 // All gogoproto extensions:
 // https://github.com/gogo/protobuf/blob/master/extensions.md
 
-option (gogoproto.marshaler_all) = true;
-option (gogoproto.unmarshaler_all) = true;
-option (gogoproto.sizer_all) = true;
-option (gogoproto.protosizer_all) = false;
-option (gogoproto.equal_all) = true;
+// option (gogoproto.marshaler_all) = true;
+// option (gogoproto.unmarshaler_all) = true;
+// option (gogoproto.sizer_all) = true;
+// option (gogoproto.protosizer_all) = false;
+// option (gogoproto.equal_all) = true;
 
-// needed for generated tests
-option (gogoproto.populate_all) = true;
-option (gogoproto.testgen_all) = true;
-option (gogoproto.benchgen_all) = true;
+//// needed for generated tests
+// option (gogoproto.populate_all) = true;
+// option (gogoproto.testgen_all) = true;
+// option (gogoproto.benchgen_all) = true;
 
 // Enable registration with golang/protobuf for the grpc-gateway.
-option (gogoproto.goproto_registration) = true;
+// option (gogoproto.goproto_registration) = true;
 
 // Enable generation of XXX_MessageName methods for grpc-go/status.
-option (gogoproto.messagename_all) = true;
+// option (gogoproto.messagename_all) = true;
 
 // Float32Chunk describes a PCM data chunk encoded in float32s.
 // The index specifies order of audio in stream so that chunks
 // can be processed asynchronously.
 message Float32Chunk {
-    uint64 index = 1;
-    uint64 streamStart = 2;
-    repeated float samples = 3;
+  uint64 index = 1;
+  uint64 streamStart = 2;
+  repeated float samples = 3;
 }

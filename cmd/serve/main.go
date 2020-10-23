@@ -3,12 +3,12 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"strings"
 )
 
-const dir = "/app/public"
-
 func main() {
+	dir := os.Args[1]
 	fs := http.FileServer(http.Dir(dir))
 	log.Print("Serving " + dir + " on http://localhost:8080")
 	err := http.ListenAndServe(":8080", http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {

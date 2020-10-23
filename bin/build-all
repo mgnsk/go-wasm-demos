@@ -1,12 +1,8 @@
 #!/bin/bash
-trap onerr ERR
 
-onerr(){ while caller $((n++)); do :; done; }
+set -eo pipefail
 
-set -o errexit
-set -o pipefail
-set -o nounset
-
+root=$1
 
 export GOOS=js
 export GOARCH=wasm
@@ -15,9 +11,9 @@ export GOARCH=wasm
 wavURL="http://localhost:8080/test2.wav"
 #wavURL="https://mgnsk.github.io/go-wasm-demos/public/test2.wav"
 
-for app in /app/cmdwasm/*/
+for app in $root/cmdwasm/*/
 do
     app=$(basename $app)
     echo "building $app"
-    go build -ldflags "-X main.wavURL=$wavURL" -o /app/public/$app/$app.wasm /app/cmdwasm/$app/main.go
+    go build -ldflags "-X main.wavURL=$wavURL" -o $root/public/$app/$app.wasm $root/cmdwasm/$app/main.go
 done

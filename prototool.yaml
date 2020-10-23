@@ -1,36 +1,15 @@
-# Protoc directives.
+excludes:
+  - .direnv
 protoc:
-  version: 3.11.3
+  version: 3.12.4
   allow_unused_imports: false
-  includes:
-    #- /go/src/github.com/grpc-ecosystem/grpc-gateway
-    - /go/src/github.com/gogo/googleapis
-    - /go/src/github.com/gogo/protobuf/protobuf
-    - /go/src/github.com/gogo/protobuf/gogoproto
 
-# Code generation directives.
 generate:
   go_options:
     import_path: github.com/mgnsk/go-wasm-demos
-
-    # Extra modifiers to include with Mfile=package.
-    extra_modifiers:
-      google/protobuf/timestamp.proto: github.com/gogo/protobuf/types
-      google/protobuf/duration.proto: github.com/gogo/protobuf/types
-      google/protobuf/empty.proto: github.com/gogo/protobuf/types
-      google/api/annotations.proto: github.com/gogo/googleapis/google/api
-      google/protobuf/field_mask.proto: github.com/gogo/protobuf/types
 
   plugins:
     - name: gogoslick
       type: gogo
       flags: plugins=grpc
       output: ./gen
-    # - name: grpc-gateway
-    #   type: go
-    #   output: ./app
-    # - name: grpc-web
-    #   flags: import_style=typescript,mode=grpcweb
-    #   output: ./frontend/generated
-    # - name: swagger
-    #   output: ./swagger

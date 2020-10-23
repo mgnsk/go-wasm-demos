@@ -1,12 +1,8 @@
 #!/bin/bash
-trap onerr ERR
 
-onerr(){ while caller $((n++)); do :; done; }
+set -eo pipefail
 
-set -o errexit
-set -o pipefail
-set -o nounset
-
+root=$1
 
 GOROOT=$(go env GOROOT)
 
@@ -27,30 +23,30 @@ host="http://localhost:8080"
 #host="https://mgnsk.github.io/go-wasm-demos/public"
 
 # Render public dirs for all wasm apps.
-rm -rf /app/public/
+rm -rf $root/public/
 
-for app in /app/cmdwasm/*/
+for app in $root/cmdwasm/*/
 do
     app=$(basename $app)
 
     echo "$app"
 
-    mkdir -p /app/public/$app/
+    mkdir -p $root/public/$app/
 
-    render /app/template/index.js.tpl \
+    render $root/template/index.js.tpl \
         --WasmExecJS "$(cat $wasmExecJSPath)" \
-        --WasmURL "$host/$app/$app.wasm" > /app/public/$app/index.js
+        --WasmURL "$host/$app/$app.wasm" > $root/public/$app/index.js
 
-    render /app/template/index.js.go.tpl \
+    render $root/template/index.js.go.tpl \
         --Package "$app" \
-        --IndexJS "$(cat /app/public/$app/index.js | base64)" > /app/public/$app/index.js.go
+        --IndexJS "$(cat $root/public/$app/index.js | base64)" > $root/public/$app/index.js.go
 
-    render /app/template/index.html.tpl \
-        --CanvasID "gocanvas" > /app/public/$app/index.html
+    render $root/template/index.html.tpl \
+        --CanvasID "gocanvas" > $root/public/$app/index.html
 done
 
 echo "# Copying static data..."
 
 # Copy static data.
-cp /app/test2.wav /app/public/test2.wav
-cp /app/third_party/js/stats.min.js /app/public/stats.min.js
+cp $root/test2.wav $root/public/test2.wav
+cp $root/third_party/js/stats.min.js $root/public/stats.min.js

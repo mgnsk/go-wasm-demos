@@ -1,5 +1,3 @@
-//go:generate go run main.go --dir-shaders /app/shaders/ --output /app/gen/shader --package-name shader
-
 package main
 
 import (
@@ -71,7 +69,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		pathRelative := strings.TrimPrefix(path, dirShaders)
+		pathRelative := strings.TrimPrefix(path, dirShaders+"/")
 
 		shaders[pathRelative] = string(b)
 
