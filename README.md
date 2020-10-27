@@ -10,5 +10,7 @@
 `direnv` is required to load the environment. Run `setup.sh` to install tools.
 To get started, run:
 `$ tusk generate`
+
 `$ tusk build`
+
 `$ tusk serve`
