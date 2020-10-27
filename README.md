@@ -1,10 +1,5 @@
 ## Go WASM demos
 
-### System dependencies:
-* `direnv`
-* `docker`
-* `docker-compose`
-
 ### WASM apps
 * `audiotrack` - Multi-worker audio FX chain using wrpc pipes.
 * `benchmark` - Byte throughput benchmark for WebWorker chains.
