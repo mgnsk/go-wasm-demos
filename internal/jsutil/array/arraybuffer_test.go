@@ -3,7 +3,7 @@
 package array_test
 
 import (
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

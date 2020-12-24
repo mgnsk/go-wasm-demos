@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
 
 // TODO documentation is a bit rough.

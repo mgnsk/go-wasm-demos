@@ -1,4 +1,3 @@
-.direnv
 vendor
 *.wasm
 public

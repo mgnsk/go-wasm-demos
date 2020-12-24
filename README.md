@@ -1,10 +1,5 @@
 ## Go WASM demos
 
-### System dependencies:
-* `direnv`
-* `docker`
-* `docker-compose`
-
 ### WASM apps
 * `audiotrack` - Multi-worker audio FX chain using wrpc pipes.
 * `benchmark` - Byte throughput benchmark for WebWorker chains.
@@ -12,7 +7,7 @@
 * `streaming` - Unix-y text processing on wrpc pipes.
 * `triangle` - 2D triangle using webgl.
 
-`direnv` is required to load the environment. Run `setup.sh` to install tools.
+`direnv` is required to load the environment. Install [tusk](https://github.com/rliebz/tusk) to run tasks.
 To get started, run:
 `$ tusk generate`
 `$ tusk build`

@@ -26,9 +26,10 @@ tasks:
       - set-environment:
           GOOS: linux
           GOARCH: amd64
-      - command: prototool generate
-      - command: render-templates $(pwd)
+      - command: podman run --rm --volume ${PWD}:/work uber/prototool prototool generate
+      - command: bin/render-templates $(pwd)
       - command: go run cmd/genshaders/main.go --dir-shaders $(pwd)/shaders --output $(pwd)/gen/shader --package-name shader
+
       # workarounds TODO
       - command: rm -rf ./gen/github.com
 
@@ -41,16 +42,29 @@ tasks:
   build:
     usage: Build all apps.
     run:
-      - command: build-all $(pwd)
+      - set-environment:
+          GOOS: js
+          GOARCH: wasm
+      - command: |
+          # TODO currently links to all apps
+          wavURL="http://localhost:8080/test2.wav"
+          for app in ${PWD}/cmdwasm/*/
+          do
+              app=$(basename $app)
+              echo "building $app"
+              go build -ldflags "-X main.wavURL=$wavURL" -o ${PWD}/public/$app/$app.wasm ${PWD}/cmdwasm/$app/main.go
+          done
 
   serve:
     usage: Run a webserver.
     run:
+      - set-environment:
+          GOOS: linux
+          GOARCH: amd64
       - command: go run cmd/serve/main.go $(pwd)/public
 
   test.node:
-    usage: Run tests on nodejs. tusk local.test.node ./... from the host system.
-    description: Care must be taken to keep the apps runnable on browsers too.
+    usage: Run tests on nodejs.
     args:
       pkg:
         usage: Package
@@ -58,4 +72,7 @@ tasks:
       - set-environment:
           GOOS: js
           GOARCH: wasm
-      - command: go test -v -count=1 -exec="$(go env GOROOT)/misc/wasm/go_js_wasm_exec" ${pkg}
+      - command: go mod download
+      - command: go mod vendor
+      - command: sed -i 's/build windows/build windows js/g' ./vendor/github.com/onsi/ginkgo/internal/remote/output_interceptor_win.go
+      - command: go test -mod=vendor -v -count=1 -exec="$(go env GOROOT)/misc/wasm/go_js_wasm_exec" ${pkg}

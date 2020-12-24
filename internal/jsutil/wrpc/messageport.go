@@ -10,8 +10,8 @@ import (
 	"syscall/js"
 
 	"github.com/joomcode/errorx"
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
 )
 
 // MessagePort enables duplex communication with any js object

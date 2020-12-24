@@ -14,10 +14,10 @@ import (
 
 	"github.com/joomcode/errorx"
 	"github.com/mgnsk/go-wasm-demos/gen/idl/audio/audiov1"
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/audio"
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/array"
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/wrpc"
+	"github.com/mgnsk/go-wasm-demos/internal/audio"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
 	"github.com/mgnsk/go-wasm-demos/public/audiotrack"
 )
 

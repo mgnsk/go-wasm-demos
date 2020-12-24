@@ -11,6 +11,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/joomcode/errorx v1.0.3
 	github.com/kr/pretty v0.1.0 // indirect
+	github.com/mgnsk/templatetool v0.0.0-20201023205142-7f74b101ecef // indirect
 	github.com/nxadm/tail v1.4.5 // indirect
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3

@@ -13,8 +13,8 @@ import (
 
 	"github.com/joomcode/errorx"
 	"github.com/mgnsk/go-wasm-demos/public/benchmark"
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/wrpc"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
 )
 
 func init() {

@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"

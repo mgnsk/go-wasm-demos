@@ -5,7 +5,7 @@ package wrpc
 import (
 	"context"
 
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
 
 // Scheduler schedules calls to ports.

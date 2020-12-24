@@ -3,7 +3,7 @@
 package webgl
 
 import (
-	"github.com/mgnsk/go-wasm-demos/internal/pkg/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
 )
 
 // Attrib is shader attribute
