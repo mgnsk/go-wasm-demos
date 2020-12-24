@@ -9,6 +9,6 @@
 
 `direnv` is required to load the environment. Install [tusk](https://github.com/rliebz/tusk) to run tasks.
 To get started, run:
-`$ tusk generate`
-`$ tusk build`
-`$ tusk serve`
+* `$ tusk generate`
+* `$ tusk build`
+* `$ tusk serve`
