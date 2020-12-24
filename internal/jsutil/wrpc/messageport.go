@@ -5,7 +5,6 @@ package wrpc
 import (
 	"context"
 	"io"
-	"runtime"
 	"sync/atomic"
 	"syscall/js"
 
@@ -50,7 +49,7 @@ func Pipe() (*MessagePort, *MessagePort) {
 func NewMessagePort(value js.Value) *MessagePort {
 	recvReader, recvWriter := io.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
-	port := &MessagePort{
+	p := &MessagePort{
 		value:       value,
 		recvReader:  recvReader,
 		recvWriter:  recvWriter,
@@ -60,130 +59,21 @@ func NewMessagePort(value js.Value) *MessagePort {
 		cancel:      cancel,
 	}
 
-	onerror, onmessage, onmessageerror := port.getEventHandlers()
+	p.value.Set("onerror", js.FuncOf(p.onError))
+	p.value.Set("onmessageerror", js.FuncOf(p.onMessageError))
+	p.value.Set("onmessage", js.FuncOf(p.onMessage))
 
-	port.value.Set("onerror", onerror)
-	port.value.Set("onmessage", onmessage)
-	port.value.Set("onmessageerror", onmessageerror)
-
-	port.notifyReady()
+	p.notifyReady()
 
 	// Clean up when port is not used anymore.
-	runtime.SetFinalizer(port, func(p *MessagePort) {
-		onerror.Release()
-		onmessage.Release()
-		onmessageerror.Release()
-	})
+	// TODO
+	//runtime.SetFinalizer(p, func(interface{}) {
+	//onerror.Release()
+	//onmessage.Release()
+	//onmessageerror.Release()
+	//})
 
-	return port
-}
-
-// setEventHandlers sets the handlers for incoming messages and error handling.
-func (port *MessagePort) getEventHandlers() (onerror, onmessage, onmessageerror js.Func) {
-	onerror = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		jsutil.ConsoleLog("MessagePort: onerror:", args[0])
-		return nil
-	})
-
-	onmessage = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		// TODO assert that args are valid.
-		data := args[0].Get("data")
-
-		if !data.Get("ready").IsUndefined() {
-			go func() {
-				port.remoteReady <- struct{}{}
-			}()
-			return nil
-		}
-
-		if !data.Get("ack").IsUndefined() {
-			go func() {
-				port.ack <- struct{}{}
-			}()
-			return nil
-		}
-
-		// Handle port close from other side and start emitting EOF.
-		if !data.Get("EOF").IsUndefined() {
-			// Set the EOF flag for Write. It does not use the pipe.
-			port.isEOF = true
-			port.cancel()
-			// Close only writer. reader will get an EOF.
-			port.recvWriter.Close()
-			port.value.Call("close")
-			return nil
-		}
-
-		// Remote call.
-		rc := data.Get("rc")
-		if jsutil.IsWorker && !rc.IsUndefined() {
-
-			call := newCallFromJS(
-				data.Get("rc"),
-				data.Get("input"),
-				data.Get("output"),
-			)
-
-			// Currently allow 1 concurrent call per worker.
-			// TODO configure this on runtime.
-			// It can happen if multiple ports are scheduling into this one.
-			if atomic.AddUint64(&CallCount, 1) > 1 {
-				jsutil.ConsoleLog("Rescheduling...")
-				// Reschedule until we have a free worker.
-				go GlobalScheduler.Call(context.TODO(), call)
-				return nil
-			}
-
-			// Notify the caller to send input now as we have set up event handlers.
-			if call.Input != nil {
-				ack(call.Input.JSValue())
-			}
-
-			go call.exec(func() {
-				//	atomic.AddUint64(&CallCount, ^uint64(0))
-				// Ack call output when call finished.
-				ack(call.Output.JSValue())
-			})
-			return nil
-		}
-
-		// ArrayBuffer data message.
-		arr := data.Get("arr")
-		if !arr.IsUndefined() {
-			go func() {
-				// Ack enables blocking write calls on the other side.
-				defer ack(port.value)
-
-				recvBytes, err := array.Buffer(arr).CopyBytes()
-				if err != nil {
-					errorx.Panic(errorx.Decorate(err, "copyBytes: error"))
-				} else if len(recvBytes) == 0 {
-					errorx.Panic(errorx.InternalError.New("copyBytes: 0 bytes"))
-				}
-
-				if n, err := port.recvWriter.Write(recvBytes); err == io.ErrClosedPipe {
-					// This side of the port was closed. Notify other side.
-					port.notifyEOF()
-				} else if err == io.EOF {
-					// Other side of port was closed. Close call was already handled.
-				} else if err != nil {
-					errorx.Panic(errorx.Decorate(err, "recvWriter: write error"))
-				} else if n == 0 {
-					errorx.Panic(errorx.InternalError.New("recvWriter: 0 bytes"))
-				}
-			}()
-			return nil
-		}
-
-		return nil
-	})
-
-	onmessageerror = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		jsutil.ConsoleLog("MessagePort: onmessageerror:", args[0])
-		return nil
-	})
-
-	return onerror, onmessage, onmessageerror
+	return p
 }
 
 // Read from port.
@@ -252,6 +142,109 @@ func (port *MessagePort) notifyReady() {
 	port.PostMessage(map[string]interface{}{
 		"ready": true,
 	})
+}
+
+func (p *MessagePort) onError(this js.Value, args []js.Value) interface{} {
+	jsutil.ConsoleLog("MessagePort: onerror:", args[0])
+	return nil
+}
+
+func (p *MessagePort) onMessageError(this js.Value, args []js.Value) interface{} {
+	jsutil.ConsoleLog("MessagePort: onmessageerror:", args[0])
+	return nil
+}
+
+func (p *MessagePort) onMessage(this js.Value, args []js.Value) interface{} {
+	// TODO assert that args are valid.
+	data := args[0].Get("data")
+
+	if !data.Get("ready").IsUndefined() {
+		go func() {
+			p.remoteReady <- struct{}{}
+		}()
+		return nil
+	}
+
+	if !data.Get("ack").IsUndefined() {
+		go func() {
+			p.ack <- struct{}{}
+		}()
+		return nil
+	}
+
+	// Handle port close from other side and start emitting EOF.
+	if !data.Get("EOF").IsUndefined() {
+		// Set the EOF flag for Write. It does not use the pipe.
+		p.isEOF = true
+		p.cancel()
+		// Close only writer. reader will get an EOF.
+		p.recvWriter.Close()
+		p.value.Call("close")
+		return nil
+	}
+
+	// Remote call.
+	rc := data.Get("rc")
+	if jsutil.IsWorker && !rc.IsUndefined() {
+
+		call := newCallFromJS(
+			data.Get("rc"),
+			data.Get("input"),
+			data.Get("output"),
+		)
+
+		// Currently allow 1 concurrent call per worker.
+		// TODO configure this on runtime.
+		// It can happen if multiple ports are scheduling into this one.
+		if atomic.AddUint64(&CallCount, 1) > 1 {
+			jsutil.ConsoleLog("Rescheduling...")
+			// Reschedule until we have a free worker.
+			go GlobalScheduler.Call(context.TODO(), call)
+			return nil
+		}
+
+		// Notify the caller to send input now as we have set up event handlers.
+		if call.Input != nil {
+			ack(call.Input.JSValue())
+		}
+
+		go call.exec(func() {
+			//	atomic.AddUint64(&CallCount, ^uint64(0))
+			// Ack call output when call finished.
+			ack(call.Output.JSValue())
+		})
+		return nil
+	}
+
+	// ArrayBuffer data message.
+	arr := data.Get("arr")
+	if !arr.IsUndefined() {
+		go func() {
+			// Ack enables blocking write calls on the other side.
+			defer ack(p.value)
+
+			recvBytes, err := array.Buffer(arr).CopyBytes()
+			if err != nil {
+				errorx.Panic(errorx.Decorate(err, "copyBytes: error"))
+			} else if len(recvBytes) == 0 {
+				errorx.Panic(errorx.InternalError.New("copyBytes: 0 bytes"))
+			}
+
+			if n, err := p.recvWriter.Write(recvBytes); err == io.ErrClosedPipe {
+				// This side of the port was closed. Notify other side.
+				p.notifyEOF()
+			} else if err == io.EOF {
+				// Other side of port was closed. Close call was already handled.
+			} else if err != nil {
+				errorx.Panic(errorx.Decorate(err, "recvWriter: write error"))
+			} else if n == 0 {
+				errorx.Panic(errorx.InternalError.New("recvWriter: 0 bytes"))
+			}
+		}()
+		return nil
+	}
+
+	return nil
 }
 
 // PostMessage sends a raw js message to remote end.
