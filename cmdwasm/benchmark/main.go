@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/joomcode/errorx"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
 	"github.com/mgnsk/go-wasm-demos/public/benchmark"
@@ -28,12 +27,6 @@ func init() {
 }
 
 func main() {
-	defer func() {
-		if r := recover(); r != nil {
-			errorx.Panic(errorx.WithPayload(errorx.InternalError.New("panic"), r))
-		}
-	}()
-
 	ctx := context.TODO()
 
 	if jsutil.IsWorker {
@@ -57,9 +50,14 @@ func browser() {
 	runner := &wrpc.WorkerRunner{}
 
 	for i := 0; i < numWorkers; i++ {
-		workers = append(workers, runner.Spawn(ctx))
+		w, err := runner.Spawn(ctx)
+		if err != nil {
+			panic(err)
+		}
+		workers = append(workers, w)
 	}
-	jsutil.Dump("Workers spawned...")
+
+	jsutil.ConsoleLog("Workers spawned...")
 
 	inputReader, inputWriter := wrpc.Pipe()
 	// TODO find the best chunk size
@@ -73,9 +71,9 @@ func browser() {
 	}()
 
 	pipeReader, pipeWriter := wrpc.Pipe()
-	wrpc.Go(inputReader, pipeWriter, func(in io.Reader, out io.WriteCloser) {
-		defer out.Close()
-		if _, err := io.Copy(out, in); err != nil {
+	wrpc.Go(inputReader, pipeWriter, func(w io.WriteCloser, r io.Reader) {
+		defer w.Close()
+		if _, err := io.Copy(w, r); err != nil {
 			panic(err)
 		}
 	})

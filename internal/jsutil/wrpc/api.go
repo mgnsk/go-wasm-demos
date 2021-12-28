@@ -16,7 +16,7 @@ import (
 // outputPort is call's output that must be closed when
 // not being written into anymore.
 // All writes to out block until a corresponding read from its other side.
-type RemoteCall func(in io.Reader, out io.WriteCloser)
+type RemoteCall func(io.WriteCloser, io.Reader)
 
 // Go provides a familiar interface for wRPC calls.
 //
@@ -24,33 +24,33 @@ type RemoteCall func(in io.Reader, out io.WriteCloser)
 // 1) f runs in a new goroutine on the first worker that receives it.
 // 2) f can call Go with a new RemoteCall.
 // Workers can then act like a mesh where any chain of stream is concurrently active
-func Go(in io.Reader, out io.WriteCloser, f RemoteCall) {
-	if out == nil {
+func Go(w io.WriteCloser, r io.Reader, f RemoteCall) {
+	if w == nil {
 		panic("Must have output")
 	}
 
-	var remoteReader, inputWriter, outputReader, remoteWriter *MessagePort
+	var remoteReader, inputWriter, outputReader, remoteWriter Port
 
-	if p, ok := in.(*MessagePort); ok {
-		// Pass MessagePort directly.
+	if p, ok := r.(Port); ok {
+		// Pass Port directly.
 		remoteReader = p
-	} else if in != nil {
+	} else if r != nil {
 		remoteReader, inputWriter = Pipe()
-		go mustCopy(inputWriter, in)
+		go mustCopy(inputWriter, r)
 	}
 
-	if p, ok := out.(*MessagePort); ok {
-		// Pass MessagePort directly.
+	if p, ok := w.(Port); ok {
+		// Pass Port directly.
 		remoteWriter = p
 	} else {
 		outputReader, remoteWriter = Pipe()
-		go mustCopy(out, outputReader)
+		go mustCopy(w, outputReader)
 	}
 
 	call := Call{
 		rc:     f,
-		input:  remoteReader,
-		output: remoteWriter,
+		reader: remoteReader,
+		writer: remoteWriter,
 	}
 
 	go func() {
@@ -67,11 +67,11 @@ func GoPipe(in io.Reader, out io.WriteCloser, calls ...RemoteCall) {
 	for i, f := range calls {
 		if i == len(calls)-1 {
 			// The last worker writes directly into out.
-			Go(prevOutReader, out, f)
+			Go(out, prevOutReader, f)
 
 		} else {
 			pipeReader, pipeWriter := Pipe()
-			Go(prevOutReader, pipeWriter, f)
+			Go(pipeWriter, prevOutReader, f)
 			prevOutReader = pipeReader
 		}
 	}

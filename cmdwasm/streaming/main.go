@@ -13,10 +13,8 @@ import (
 	"io"
 	"math/rand"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/joomcode/errorx"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
 	"github.com/mgnsk/go-wasm-demos/public/streaming"
@@ -32,12 +30,6 @@ func init() {
 }
 
 func main() {
-	defer func() {
-		if r := recover(); r != nil {
-			errorx.Panic(errorx.WithPayload(errorx.InternalError.New("panic"), r))
-		}
-	}()
-
 	ctx := context.TODO()
 
 	if jsutil.IsWorker {
@@ -47,17 +39,19 @@ func main() {
 	}
 }
 
-func stringGeneratorWorker(in io.Reader, out io.WriteCloser) {
-	defer out.Close()
+func stringGeneratorWorker(w io.WriteCloser, r io.Reader) {
+	fmt.Println("stated stringGeneratorWorker")
+
+	defer w.Close()
 
 	// decode args
-	dec := gob.NewDecoder(in)
+	dec := gob.NewDecoder(r)
 	var n int
 	if err := dec.Decode(&n); err != nil && err != io.EOF {
 		panic(err)
 	}
 
-	bufOut := bufio.NewWriter(out)
+	bufOut := bufio.NewWriter(w)
 	defer bufOut.Flush()
 
 	for i := 0; i < int(n); i++ {
@@ -72,11 +66,13 @@ func stringGeneratorWorker(in io.Reader, out io.WriteCloser) {
 	}
 }
 
-func upperCaseWorker(in io.Reader, out io.WriteCloser) {
-	defer out.Close()
+func upperCaseWorker(w io.WriteCloser, r io.Reader) {
+	fmt.Println("started upperCaseWorker")
 
-	scanner := bufio.NewScanner(in)
-	bufOut := bufio.NewWriter(out)
+	defer w.Close()
+
+	scanner := bufio.NewScanner(r)
+	bufOut := bufio.NewWriter(w)
 	defer bufOut.Flush()
 
 	for scanner.Scan() {
@@ -94,11 +90,13 @@ func upperCaseWorker(in io.Reader, out io.WriteCloser) {
 	}
 }
 
-func reverseWorker(in io.Reader, out io.WriteCloser) {
-	defer out.Close()
+func reverseWorker(w io.WriteCloser, r io.Reader) {
+	fmt.Println("started reverseWorker")
 
-	scanner := bufio.NewScanner(in)
-	bufOut := bufio.NewWriter(out)
+	defer w.Close()
+
+	scanner := bufio.NewScanner(r)
+	bufOut := bufio.NewWriter(w)
 	defer bufOut.Flush()
 
 	reverse := func(s string) string {
@@ -125,19 +123,22 @@ func reverseWorker(in io.Reader, out io.WriteCloser) {
 }
 
 func browser() {
-	wg := &sync.WaitGroup{}
 	defer jsutil.ConsoleLog("Exiting main program")
-	defer wg.Wait()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	numWorkers := 3
 	var workers []*wrpc.Worker
 	runner := &wrpc.WorkerRunner{}
 	for i := 0; i < numWorkers; i++ {
-		workers = append(workers, runner.Spawn(ctx))
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		w, err := runner.Spawn(ctx)
+		if err != nil {
+			panic(err)
+		}
+		cancel()
+
+		workers = append(workers, w)
 	}
+
 	jsutil.Dump("Workers spawned...")
 
 	jsutil.ConsoleLog("Executing streaming chain call")

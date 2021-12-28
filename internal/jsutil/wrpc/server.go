@@ -5,15 +5,61 @@ package wrpc
 
 import (
 	"context"
+	"sync/atomic"
 	"syscall/js"
 
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
 
-func ack(value js.Value) {
-	value.Call("postMessage", map[string]interface{}{
-		"ack": true,
-	})
+var callCount uint64
+
+func HandleMessages(ctx context.Context, r RawReader) {
+	for {
+		data, err := r.ReadRaw(ctx)
+		if err != nil {
+			panic(err)
+		}
+
+		jsutil.ConsoleLog("got message", data)
+
+		switch true {
+		// Start the scheduler to specified port.
+		case !data.Get("start_scheduler").IsUndefined():
+			target := NewMessagePort(data.Get("port"))
+			go HandleMessages(ctx, target)
+			go func() {
+				if err := GlobalScheduler.Run(ctx, target); err != nil {
+					panic(err)
+				}
+			}()
+
+			if err := target.WriteRaw(ctx, map[string]interface{}{}); err != nil {
+				panic(err)
+			}
+
+		case !data.Get("rc").IsUndefined():
+			call := NewCallFromJS(
+				data.Get("rc"),
+				data.Get("input"),
+				data.Get("output"),
+			)
+
+			// Currently allow 1 concurrent call per worker.
+			// TODO configure this on runtime.
+			// It can happen if multiple ports are scheduling into this one.
+			if atomic.AddUint64(&callCount, 1) > 1 {
+				jsutil.ConsoleLog("Rescheduling...")
+				// Reschedule until we have a free worker.
+				go func() {
+					if err := GlobalScheduler.Call(context.TODO(), call); err != nil {
+						panic(err)
+					}
+				}()
+			} else {
+				go call.Execute()
+			}
+		}
+	}
 }
 
 // RunServer runs on the webworker side to start the server implementing the WebRPC.
@@ -22,38 +68,14 @@ func RunServer(ctx context.Context) {
 		panic("Must have webworker environment")
 	}
 
+	port := NewMessagePort(js.Global())
+	go HandleMessages(ctx, port)
+
+	if err := port.WriteRaw(ctx, map[string]interface{}{}); err != nil {
+		panic(err)
+	}
+
 	jsutil.ConsoleLog("Worker started")
-
-	onmessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		defer ack(js.Global())
-
-		data := args[0].Get("data")
-
-		// Start the scheduler to specified port.
-		// This may be called by any thread.
-		startScheduler := data.Get("start_scheduler")
-		if jsutil.IsWorker && !startScheduler.IsUndefined() {
-			jsutil.ConsoleLog("received port")
-
-			networkPort := data.Get("port")
-			np := NewMessagePort(networkPort)
-
-			// Start scheduling to the port until the port gets closed.
-			go func() {
-				if err := GlobalScheduler.Run(ctx, np); err != nil {
-					panic(err)
-				}
-			}()
-
-			return nil
-		}
-
-		return nil
-	})
-	js.Global().Set("onmessage", onmessage)
-
-	// Notify main thread that worker started.
-	ack(js.Global())
 
 	<-ctx.Done()
 	panic(ctx.Err())

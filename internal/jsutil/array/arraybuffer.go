@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package array
@@ -70,94 +71,90 @@ func (a Buffer) JSValue() js.Value {
 // Int8Array view over the array.
 func (a Buffer) Int8Array() TypedArray {
 	return TypedArray(
-		js.Global().Get("Int8Array").New(a.JSValue(), 0, a.ByteLength()),
+		js.Global().Get("Int8Array").New(a.JSValue(), 0, a.Len()),
 	)
 }
 
 // Int16Array view over the array.
 func (a Buffer) Int16Array() TypedArray {
 	return TypedArray(
-		js.Global().Get("Int16Array").New(a.JSValue(), 0, a.ByteLength()/2),
+		js.Global().Get("Int16Array").New(a.JSValue(), 0, a.Len()/2),
 	)
 }
 
 // Int32Array view over the array.
 func (a Buffer) Int32Array() TypedArray {
 	return TypedArray(
-		js.Global().Get("Int32Array").New(a.JSValue(), 0, a.ByteLength()/4),
+		js.Global().Get("Int32Array").New(a.JSValue(), 0, a.Len()/4),
 	)
 }
 
 // BigInt64Array view over the array.
 func (a Buffer) BigInt64Array() TypedArray {
 	return TypedArray(
-		js.Global().Get("BigInt64Array").New(a.JSValue(), 0, a.ByteLength()/8),
+		js.Global().Get("BigInt64Array").New(a.JSValue(), 0, a.Len()/8),
 	)
 }
 
 // Uint8Array view over the array buffer.
 func (a Buffer) Uint8Array() TypedArray {
 	return TypedArray(
-		js.Global().Get("Uint8Array").New(a.JSValue(), 0, a.ByteLength()),
+		js.Global().Get("Uint8Array").New(a.JSValue(), 0, a.Len()),
 	)
 }
 
 // Uint16Array view over the array buffer.
 func (a Buffer) Uint16Array() TypedArray {
 	return TypedArray(
-		js.Global().Get("Uint16Array").New(a.JSValue(), 0, a.ByteLength()/2),
+		js.Global().Get("Uint16Array").New(a.JSValue(), 0, a.Len()/2),
 	)
 }
 
 // Uint32Array view over the array buffer.
 func (a Buffer) Uint32Array() TypedArray {
 	return TypedArray(
-		js.Global().Get("Uint32Array").New(a.JSValue(), 0, a.ByteLength()/4),
+		js.Global().Get("Uint32Array").New(a.JSValue(), 0, a.Len()/4),
 	)
 }
 
 // BigUint64Array view over the array.
 func (a Buffer) BigUint64Array() TypedArray {
 	return TypedArray(
-		js.Global().Get("BigUint64Array").New(a.JSValue(), 0, a.ByteLength()/8),
+		js.Global().Get("BigUint64Array").New(a.JSValue(), 0, a.Len()/8),
 	)
 }
 
 // Float32Array view over the array buffer.
 func (a Buffer) Float32Array() TypedArray {
 	return TypedArray(
-		js.Global().Get("Float32Array").New(a.JSValue(), 0, a.ByteLength()/4),
+		js.Global().Get("Float32Array").New(a.JSValue(), 0, a.Len()/4),
 	)
 }
 
 // Float64Array view over the array buffer.
 func (a Buffer) Float64Array() TypedArray {
 	return TypedArray(
-		js.Global().Get("Float64Array").New(a.JSValue(), 0, a.ByteLength()/8),
+		js.Global().Get("Float64Array").New(a.JSValue(), 0, a.Len()/8),
 	)
 }
 
-// ByteLength returns the length of byte array.
-func (a Buffer) ByteLength() int {
+// Len returns the length of byte array.
+func (a Buffer) Len() int {
 	return a.JSValue().Get("byteLength").Int()
 }
 
 // CopyBytes copies out bytes from js array buffer.
-func (a Buffer) CopyBytes() ([]byte, error) {
-	length := a.ByteLength()
-	if length == 0 {
-		return nil, errors.New("CopyBytes: 0 copy")
-	}
-	b := make([]byte, length)
+func (a Buffer) Read(b []byte) (n int, err error) {
+	length := a.Len()
 	if n := js.CopyBytesToGo(b, a.Uint8Array().JSValue()); n != length {
-		return nil, fmt.Errorf("CopyBytes: copied: %d, expected: %d", n, length)
+		return 0, fmt.Errorf("CopyBytes: copied: %d, expected: %d", n, length)
 	}
-	return b, nil
+	return length, nil
 }
 
 // Write bytes into array.
 func (a Buffer) Write(p []byte) (n int, err error) {
-	if n := js.CopyBytesToJS(a.Uint8Array().JSValue(), p); n < len(p) {
+	if n := js.CopyBytesToJS(a.Uint8Array().JSValue(), p); n != len(p) {
 		return 0, fmt.Errorf("Write: copied: %d, expected: %d", n, len(p))
 	}
 	return n, nil

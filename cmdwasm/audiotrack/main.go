@@ -15,7 +15,6 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/joomcode/errorx"
 	"github.com/mgnsk/go-wasm-demos/internal/audio"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
@@ -35,12 +34,6 @@ func init() {
 }
 
 func main() {
-	defer func() {
-		if r := recover(); r != nil {
-			errorx.Panic(errorx.WithPayload(errorx.InternalError.New("panic"), r))
-		}
-	}()
-
 	ctx := context.TODO()
 
 	if jsutil.IsWorker {
@@ -72,27 +65,15 @@ func forEachChunk(reader *textproto.Reader, cb func(audio.Chunk)) {
 			panic(err)
 		}
 
-		// go gob unmarshal?
 		// TODO ending dot strip?
+
 		var chunk audio.Chunk
 		d := gob.NewDecoder(bytes.NewReader(b))
 		d.Decode(&chunk)
 
-		// chunk := audio.MustUnmarshal(b[:len(b)-1]) // without dot
 		cb(chunk)
 	}
 }
-
-// TODO remove
-// func mustWrite(w io.Writer, p []byte) {
-// 	if n, err := w.Write(p); err != nil {
-// 		panic(err)
-// 	} else if n < len(p) {
-// 		panic(err)
-// 	} else if n == 0 {
-// 		panic("0 write")
-// 	}
-// }
 
 func mustWriteChunk(writer *textproto.Writer, chunk audio.Chunk) {
 	dw := writer.DotWriter()
@@ -121,14 +102,16 @@ func startAudio(ctx context.Context) {
 		runner.Spawn(context.TODO())
 	}
 
-	audioDecoder := func(_ io.Reader, out io.WriteCloser) {
+	jsutil.ConsoleLog("Workers spawned...")
+
+	audioDecoder := func(w io.WriteCloser, _ io.Reader) {
 		jsutil.ConsoleLog("1. worker")
 		// Schedule a subworker to fetch and decode the chunks.
 		chunkReader, chunkWriter := wrpc.Pipe()
-		wrpc.Go(nil, chunkWriter, func(_ io.Reader, out io.WriteCloser) {
+		wrpc.Go(chunkWriter, nil, func(w io.WriteCloser, _ io.Reader) {
 			jsutil.ConsoleLog("2. worker")
-			defer out.Close()
-			writer := textproto.NewWriter(bufio.NewWriter(out))
+			defer w.Close()
+			writer := textproto.NewWriter(bufio.NewWriter(w))
 
 			// Currently the wav decoder requires the entire file to be downloaded before it can start producing chunks.
 			chunks := audio.GetWavChunks(wavURL, chunkSize)
@@ -149,11 +132,11 @@ func startAudio(ctx context.Context) {
 		})
 
 		// Another worker to apply gain to the chunks and let it write to master out.
-		wrpc.Go(chunkReader, out, func(in io.Reader, out io.WriteCloser) {
+		wrpc.Go(w, chunkReader, func(w io.WriteCloser, r io.Reader) {
 			jsutil.ConsoleLog("3. worker")
-			defer out.Close()
-			reader := textproto.NewReader(bufio.NewReader(in))
-			writer := textproto.NewWriter(bufio.NewWriter(out))
+			defer w.Close()
+			reader := textproto.NewReader(bufio.NewReader(r))
+			writer := textproto.NewWriter(bufio.NewWriter(w))
 
 			forEachChunk(reader, func(chunk audio.Chunk) {
 				// Apply gain FX.
@@ -164,10 +147,10 @@ func startAudio(ctx context.Context) {
 	}
 
 	// We can easily passthrough cause the textprotos are buffering.
-	audioPassthrough := func(in io.Reader, out io.WriteCloser) {
+	audioPassthrough := func(w io.WriteCloser, r io.Reader) {
 		jsutil.ConsoleLog("4. worker")
-		defer out.Close()
-		if n, err := io.Copy(out, in); err != nil {
+		defer w.Close()
+		if n, err := io.Copy(w, r); err != nil {
 			panic(err)
 		} else if n == 0 {
 			panic("0 copy")
