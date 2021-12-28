@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package wrpc
@@ -5,165 +6,230 @@ package wrpc
 import (
 	"context"
 	"io"
+	"net"
+	"os"
+	"runtime"
+	"sync"
 	"sync/atomic"
 	"syscall/js"
+	"time"
 
 	"github.com/joomcode/errorx"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
 )
 
+// callCount specifies how many calls are currently processing.
+var callCount uint64 = 0
+
 // MessagePort enables duplex communication with any js object
 // implementing the onmessage event and postMessage method.
 type MessagePort struct {
 	// JS MessagePort object.
-	value js.Value
+	port js.Value
 
 	// A writer where onmessage event handler writes to.
-	recvWriter *io.PipeWriter
+	recvWriter net.Conn
 	// A reader from where messages written to recvWriter can be read from.
-	recvReader *io.PipeReader
+	recvReader net.Conn
 
 	// remoteReady is closed when the remote end starts listening.
 	remoteReady chan struct{}
 
+	// readyOnce sets port to be ready.
+	readyOnce sync.Once
+
 	ack chan struct{}
 
-	// isEOF when true, indicates that remote side closed its port.
-	isEOF bool
-	// isClosed indicates that the port was closed from this side.
-	isClosed bool
+	err error
 
-	// Context that is canceled when port is closed.
-	ctx    context.Context
-	cancel context.CancelFunc
+	onError        js.Func
+	onMessageError js.Func
+	onMessage      js.Func
+
+	writeCtx    context.Context
+	writeCancel context.CancelFunc
 }
 
 // Pipe returns a message channel pipe connection between ports.
 func Pipe() (*MessagePort, *MessagePort) {
 	ch := js.Global().Get("MessageChannel").New()
-	return NewMessagePort(ch.Get("port1")), NewMessagePort(ch.Get("port2"))
+	port1 := NewMessagePort(ch.Get("port1"))
+	port2 := NewMessagePort(ch.Get("port2"))
+
+	return port1, port2
 }
 
 // NewMessagePort constructor.
-func NewMessagePort(value js.Value) *MessagePort {
-	recvReader, recvWriter := io.Pipe()
+func NewMessagePort(port js.Value) *MessagePort {
+	recvReader, recvWriter := net.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
 	p := &MessagePort{
-		value:       value,
+		port:        port,
 		recvReader:  recvReader,
 		recvWriter:  recvWriter,
 		remoteReady: make(chan struct{}),
 		ack:         make(chan struct{}),
-		ctx:         ctx,
-		cancel:      cancel,
+		writeCtx:    ctx,
+		writeCancel: cancel,
 	}
 
-	p.value.Set("onerror", js.FuncOf(p.onError))
-	p.value.Set("onmessageerror", js.FuncOf(p.onMessageError))
-	p.value.Set("onmessage", js.FuncOf(p.onMessage))
+	p.onError = js.FuncOf(p.onErrorHandler)
+	p.onMessageError = js.FuncOf(p.onMessageErrorHandler)
+	p.onMessage = js.FuncOf(p.onMessageHandler)
 
-	p.notifyReady()
+	p.port.Set("onerror", p.onError)
+	p.port.Set("onmessageerror", p.onMessageError)
+	p.port.Set("onmessage", p.onMessage)
 
-	// Clean up when port is not used anymore.
-	// TODO
-	//runtime.SetFinalizer(p, func(interface{}) {
-	//onerror.Release()
-	//onmessage.Release()
-	//onmessageerror.Release()
-	//})
+	runtime.SetFinalizer(p, func(v interface{}) {
+		port := v.(*MessagePort)
+		port.onError.Release()
+		port.onMessageError.Release()
+		port.onMessage.Release()
+	})
 
 	return p
 }
 
 // Read from port.
-func (port *MessagePort) Read(p []byte) (n int, err error) {
-	return port.recvReader.Read(p)
+func (p *MessagePort) Read(b []byte) (n int, err error) {
+	return p.recvReader.Read(b)
 }
 
 // Write to port.
-func (port *MessagePort) Write(p []byte) (n int, err error) {
+func (p *MessagePort) Write(b []byte) (n int, err error) {
 	// Since we don't use a pipe on the write side,
 	// we have to rely on manual signaling.
-	if port.isEOF {
-		return 0, io.EOF
-	} else if port.isClosed {
-		return 0, io.ErrClosedPipe
+	if p.err != nil {
+		return 0, p.err
 	}
 
-	arr, err := array.CreateBufferFromSlice(p)
+	arr, err := array.CreateBufferFromSlice(b)
 	if err != nil {
 		return 0, err
 	}
 
 	messages := map[string]interface{}{"arr": arr}
 	transferables := []interface{}{arr}
-	port.PostMessage(messages, transferables)
-	<-port.ack
-	return len(p), nil
+
+	p.port.Call("postMessage", messages, transferables)
+
+	select {
+	case <-p.writeCtx.Done():
+		if p.err != nil {
+			return 0, p.err
+		}
+		if p.writeCtx.Err() == context.DeadlineExceeded {
+			return 0, os.ErrDeadlineExceeded
+		}
+	case <-p.ack:
+	}
+
+	return len(b), nil
 }
 
 // Close the port.
-func (port *MessagePort) Close() error {
-	if port.isEOF {
-		return io.EOF
-	} else if port.isClosed {
-		return io.ErrClosedPipe
+func (p *MessagePort) Close() error {
+	if p.err != nil {
+		return p.err
 	}
 
-	// Let port.Write know we are closed.
-	port.isClosed = true
-	// Stop schedulers to this port.
-	port.cancel()
+	p.recvReader.Close()
+	p.recvWriter.Close()
+
+	p.err = io.ErrClosedPipe
+
+	p.writeCancel()
+
 	// Notify remote end of EOF.
-	port.notifyEOF()
-	port.recvReader.Close()
-	port.recvWriter.Close()
-	port.value.Call("close")
+	p.notifyEOF()
+
+	p.port.Call("close")
+
+	return nil
+}
+
+// LocalAddr returns the local port addr
+func (p *MessagePort) LocalAddr() net.Addr {
+	return nil
+}
+
+// RemoteAddr returns the remote port addr.
+func (p *MessagePort) RemoteAddr() net.Addr {
+	return nil
+}
+
+// SetDeadline for read and write operations.
+func (p *MessagePort) SetDeadline(t time.Time) error {
+	if p.err != nil {
+		return p.err
+	}
+
+	p.recvReader.SetReadDeadline(t)
+	p.setWriteDeadline(t)
+
+	return nil
+}
+
+// SetReadDeadline for read operations.
+func (p *MessagePort) SetReadDeadline(t time.Time) error {
+	if p.err != nil {
+		return p.err
+	}
+
+	p.recvReader.SetReadDeadline(t)
+
+	return nil
+}
+
+// SetWriteDeadline for write operations.
+func (p *MessagePort) SetWriteDeadline(t time.Time) error {
+	if p.err != nil {
+		return p.err
+	}
+
+	p.setWriteDeadline(t)
+
 	return nil
 }
 
 // JSValue returns the underlying js value.
-func (port *MessagePort) JSValue() js.Value {
-	if port == nil {
+func (p *MessagePort) JSValue() js.Value {
+	if p == nil {
 		return js.Null()
 	}
-	return port.value
+	return p.port
 }
 
-func (port *MessagePort) notifyEOF() {
+func (p *MessagePort) setWriteDeadline(t time.Time) {
+	if t.IsZero() {
+		p.writeCtx, p.writeCancel = nil, nil
+	} else {
+		p.writeCtx, p.writeCancel = context.WithDeadline(context.Background(), t)
+	}
+}
+
+func (p *MessagePort) notifyEOF() {
 	// Notify the remote side to emit an EOF from now on.
-	port.PostMessage(map[string]interface{}{
+	p.port.Call("postMessage", map[string]interface{}{
 		"EOF": true,
 	})
 }
 
-func (port *MessagePort) notifyReady() {
-	port.PostMessage(map[string]interface{}{
-		"ready": true,
-	})
-}
-
-func (p *MessagePort) onError(this js.Value, args []js.Value) interface{} {
+func (p *MessagePort) onErrorHandler(this js.Value, args []js.Value) interface{} {
 	jsutil.ConsoleLog("MessagePort: onerror:", args[0])
 	return nil
 }
 
-func (p *MessagePort) onMessageError(this js.Value, args []js.Value) interface{} {
+func (p *MessagePort) onMessageErrorHandler(this js.Value, args []js.Value) interface{} {
 	jsutil.ConsoleLog("MessagePort: onmessageerror:", args[0])
 	return nil
 }
 
-func (p *MessagePort) onMessage(this js.Value, args []js.Value) interface{} {
+func (p *MessagePort) onMessageHandler(this js.Value, args []js.Value) interface{} {
 	// TODO assert that args are valid.
 	data := args[0].Get("data")
-
-	if !data.Get("ready").IsUndefined() {
-		go func() {
-			p.remoteReady <- struct{}{}
-		}()
-		return nil
-	}
 
 	if !data.Get("ack").IsUndefined() {
 		go func() {
@@ -174,20 +240,25 @@ func (p *MessagePort) onMessage(this js.Value, args []js.Value) interface{} {
 
 	// Handle port close from other side and start emitting EOF.
 	if !data.Get("EOF").IsUndefined() {
-		// Set the EOF flag for Write. It does not use the pipe.
-		p.isEOF = true
-		p.cancel()
+		if p.writeCancel != nil {
+			p.writeCancel()
+		}
+
 		// Close only writer. reader will get an EOF.
 		p.recvWriter.Close()
-		p.value.Call("close")
+
+		p.port.Call("close")
+
+		// TODO
+		// close(p.ack)
+
 		return nil
 	}
 
 	// Remote call.
 	rc := data.Get("rc")
 	if jsutil.IsWorker && !rc.IsUndefined() {
-
-		call := newCallFromJS(
+		call := NewCallFromJS(
 			data.Get("rc"),
 			data.Get("input"),
 			data.Get("output"),
@@ -196,23 +267,15 @@ func (p *MessagePort) onMessage(this js.Value, args []js.Value) interface{} {
 		// Currently allow 1 concurrent call per worker.
 		// TODO configure this on runtime.
 		// It can happen if multiple ports are scheduling into this one.
-		if atomic.AddUint64(&CallCount, 1) > 1 {
+		if atomic.AddUint64(&callCount, 1) > 1 {
 			jsutil.ConsoleLog("Rescheduling...")
 			// Reschedule until we have a free worker.
 			go GlobalScheduler.Call(context.TODO(), call)
 			return nil
 		}
 
-		// Notify the caller to send input now as we have set up event handlers.
-		if call.Input != nil {
-			ack(call.Input.JSValue())
-		}
+		go call.Execute()
 
-		go call.exec(func() {
-			//	atomic.AddUint64(&CallCount, ^uint64(0))
-			// Ack call output when call finished.
-			ack(call.Output.JSValue())
-		})
 		return nil
 	}
 
@@ -221,7 +284,7 @@ func (p *MessagePort) onMessage(this js.Value, args []js.Value) interface{} {
 	if !arr.IsUndefined() {
 		go func() {
 			// Ack enables blocking write calls on the other side.
-			defer ack(p.value)
+			defer ack(p.port)
 
 			recvBytes, err := array.Buffer(arr).CopyBytes()
 			if err != nil {
@@ -245,14 +308,4 @@ func (p *MessagePort) onMessage(this js.Value, args []js.Value) interface{} {
 	}
 
 	return nil
-}
-
-// PostMessage sends a raw js message to remote end.
-func (port *MessagePort) PostMessage(args ...interface{}) {
-	port.value.Call("postMessage", args...)
-}
-
-// RemoteReady returns a channel that is closed when the remote end starts listening.
-func (port *MessagePort) RemoteReady() <-chan struct{} {
-	return port.remoteReady
 }

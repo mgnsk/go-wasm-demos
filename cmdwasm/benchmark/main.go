@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package main
@@ -12,9 +13,9 @@ import (
 	"time"
 
 	"github.com/joomcode/errorx"
-	"github.com/mgnsk/go-wasm-demos/public/benchmark"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
+	"github.com/mgnsk/go-wasm-demos/public/benchmark"
 )
 
 func init() {
@@ -53,16 +54,11 @@ func browser() {
 	// Create workers.
 	numWorkers := 4
 	var workers []*wrpc.Worker
-	workerWg := &sync.WaitGroup{}
+	runner := &wrpc.WorkerRunner{}
 
 	for i := 0; i < numWorkers; i++ {
-		workerWg.Add(1)
-		go func() {
-			defer workerWg.Done()
-			workers = append(workers, wrpc.SpawnWorker(ctx))
-		}()
+		workers = append(workers, runner.Spawn(ctx))
 	}
-	workerWg.Wait()
 	jsutil.Dump("Workers spawned...")
 
 	inputReader, inputWriter := wrpc.Pipe()

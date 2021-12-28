@@ -1,15 +1,16 @@
+//go:build js && wasm
 // +build js,wasm
 
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"math/rand"
 	"syscall/js"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/mgnsk/go-wasm-demos/gen/shader"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/webgl"
@@ -18,6 +19,10 @@ import (
 var (
 	width  int
 	height int
+	//go:embed shader/triangle.vert
+	vertShader string
+	//go:embed shader/triangle.frag
+	fragShader string
 )
 
 func init() {
@@ -83,9 +88,6 @@ func main() {
 	jsutil.ConsoleLog(indexBuffer)
 
 	// 	//// Shaders ////
-
-	vertShader := shader.Shaders["triangle/triangle.vert"]
-	fragShader := shader.Shaders["triangle/triangle.frag"]
 
 	attribs := []string{"coordinates"}
 

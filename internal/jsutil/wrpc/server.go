@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package wrpc
@@ -23,35 +24,24 @@ func RunServer(ctx context.Context) {
 
 	jsutil.ConsoleLog("Worker started")
 
-	// Wait for the first message to receive the messagePort on that
-	// RPC calls from main thread are sent to.
 	onmessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		defer ack(js.Global())
 
 		data := args[0].Get("data")
 
-		// Add the main thread port.
-		mainPort := data.Get("main_port")
-		if !mainPort.IsUndefined() {
-			// Set up the main port that receives commands from main thread.
-			NewMessagePort(mainPort)
-
-			return nil
-			// Not scheduling to main thread from the worker.
-		}
-
 		// Start the scheduler to specified port.
+		// This may be called by any thread.
 		startScheduler := data.Get("start_scheduler")
 		if jsutil.IsWorker && !startScheduler.IsUndefined() {
+			jsutil.ConsoleLog("received port")
+
 			networkPort := data.Get("port")
 			np := NewMessagePort(networkPort)
 
 			// Start scheduling to the port until the port gets closed.
 			go func() {
-				if err := GlobalScheduler.RunScheduler(np.ctx, np); err != nil {
-					jsutil.Dump("Scheduling stopped:", err)
+				if err := GlobalScheduler.Run(ctx, np); err != nil {
 					panic(err)
-					// TODO
 				}
 			}()
 
@@ -65,5 +55,6 @@ func RunServer(ctx context.Context) {
 	// Notify main thread that worker started.
 	ack(js.Global())
 
-	select {}
+	<-ctx.Done()
+	panic(ctx.Err())
 }

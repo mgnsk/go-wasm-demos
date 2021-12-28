@@ -2,27 +2,7 @@ package audio
 
 import (
 	"time"
-
-	"github.com/mgnsk/go-wasm-demos/gen/idl/audio/audiov1"
 )
-
-// MustMarshal marshals the audio buffer or panics.
-func MustMarshal(chunk *audiov1.Float32Chunk) []byte {
-	b, err := chunk.Marshal()
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
-// MustUnmarshal unmarshals the audio buffer or panics.
-func MustUnmarshal(b []byte) *audiov1.Float32Chunk {
-	chunk := &audiov1.Float32Chunk{}
-	if err := chunk.Unmarshal(b); err != nil {
-		panic(err)
-	}
-	return chunk
-}
 
 // TimeBuffer blocks a speedy caller to be ahead of realtime by max amount.
 type TimeBuffer struct {

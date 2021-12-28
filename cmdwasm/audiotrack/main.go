@@ -1,11 +1,14 @@
+//go:build js && wasm
 // +build js,wasm
 
 package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/gob"
 	"io"
 	"net/textproto"
 	"sync"
@@ -13,7 +16,6 @@ import (
 	"time"
 
 	"github.com/joomcode/errorx"
-	"github.com/mgnsk/go-wasm-demos/gen/idl/audio/audiov1"
 	"github.com/mgnsk/go-wasm-demos/internal/audio"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
@@ -63,34 +65,43 @@ func browser() {
 	select {}
 }
 
-func forEachChunk(reader *textproto.Reader, cb func(*audiov1.Float32Chunk)) {
+func forEachChunk(reader *textproto.Reader, cb func(audio.Chunk)) {
 	for {
 		b, err := reader.ReadDotBytes()
 		if err != nil {
 			panic(err)
 		}
 
-		// Strip the ending dot and process.
-		chunk := audio.MustUnmarshal(b[:len(b)-1])
+		// go gob unmarshal?
+		// TODO ending dot strip?
+		var chunk audio.Chunk
+		d := gob.NewDecoder(bytes.NewReader(b))
+		d.Decode(&chunk)
+
+		// chunk := audio.MustUnmarshal(b[:len(b)-1]) // without dot
 		cb(chunk)
 	}
 }
 
-func mustWrite(w io.Writer, p []byte) {
-	if n, err := w.Write(p); err != nil {
-		panic(err)
-	} else if n < len(p) {
-		panic(err)
-	} else if n == 0 {
-		panic("0 write")
-	}
-}
+// TODO remove
+// func mustWrite(w io.Writer, p []byte) {
+// 	if n, err := w.Write(p); err != nil {
+// 		panic(err)
+// 	} else if n < len(p) {
+// 		panic(err)
+// 	} else if n == 0 {
+// 		panic("0 write")
+// 	}
+// }
 
-func mustWriteChunk(writer *textproto.Writer, chunk *audiov1.Float32Chunk) {
-	data := audio.MustMarshal(chunk)
+func mustWriteChunk(writer *textproto.Writer, chunk audio.Chunk) {
 	dw := writer.DotWriter()
 	defer dw.Close()
-	mustWrite(dw, data)
+
+	e := gob.NewEncoder(dw)
+	if err := e.Encode(chunk); err != nil {
+		panic(err)
+	}
 }
 
 // TODO currently quite inefficient processing
@@ -100,23 +111,15 @@ const (
 	bufferDuration = 200 * time.Millisecond
 )
 
-func createWorkers(count int) {
-	workerWg := &sync.WaitGroup{}
-	for i := 0; i < count; i++ {
-		workerWg.Add(1)
-		go func() {
-			defer workerWg.Done()
-			// TODO the worker never gets killed.
-			wrpc.SpawnWorker(context.TODO())
-		}()
-	}
-	workerWg.Wait()
-}
-
 func startAudio(ctx context.Context) {
 	// Create worker functions.
 
-	createWorkers(4)
+	runner := &wrpc.WorkerRunner{}
+
+	for i := 0; i < 4; i++ {
+		// TODO the worker never gets killed.
+		runner.Spawn(context.TODO())
+	}
 
 	audioDecoder := func(_ io.Reader, out io.WriteCloser) {
 		jsutil.ConsoleLog("1. worker")
@@ -137,7 +140,7 @@ func startAudio(ctx context.Context) {
 			jsutil.Dump("Chunk duration:", chunkDuration)
 
 			for chunk := range chunks {
-				mustWriteChunk(writer, &chunk)
+				mustWriteChunk(writer, chunk)
 				//	_ = tb
 				// TODO time.Sleep takes a lot of resources.
 				// Block if necessary to to stay ahead only buffer duration.
@@ -152,9 +155,9 @@ func startAudio(ctx context.Context) {
 			reader := textproto.NewReader(bufio.NewReader(in))
 			writer := textproto.NewWriter(bufio.NewWriter(out))
 
-			forEachChunk(reader, func(chunk *audiov1.Float32Chunk) {
+			forEachChunk(reader, func(chunk audio.Chunk) {
 				// Apply gain FX.
-				audio.Gain(chunk, 0.5)
+				audio.Gain(&chunk, 0.5)
 				mustWriteChunk(writer, chunk)
 			})
 		})
@@ -179,7 +182,7 @@ func startAudio(ctx context.Context) {
 	audioCtx := js.Global().Get("AudioContext").New()
 	player := js.Global().Get("PCMPlayer").New(audioCtx)
 
-	forEachChunk(reader, func(chunk *audiov1.Float32Chunk) {
+	forEachChunk(reader, func(chunk audio.Chunk) {
 		// TODO: It didn't make a difference if I sent
 		// the channels together or separately.
 		// Should rather try an URL object approach for some MIME type.

@@ -1,8 +1,10 @@
+//go:build js && wasm
 // +build js,wasm
 
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"math/rand"
 	"syscall/js"
@@ -11,7 +13,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/mgnsk/go-wasm-demos/gen/shader"
 	"github.com/mgnsk/go-wasm-demos/internal/gfx"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
@@ -20,6 +21,10 @@ import (
 
 var (
 	gl js.Value
+	//go:embed shader/cube.vert
+	vertShader string
+	//go:embed shader/cube.frag
+	fragShader string
 )
 
 // https://www.tutorialspoint.com/webgl/webgl_cube_rotation.htm //
@@ -118,11 +123,11 @@ func main() {
 	// * Shaders *
 
 	// Create a vertex shader object
-	vertShader, err := webgl.CreateShader(gl, shader.Shaders["cube/cube.vert"], gl.Types.VertexShader)
+	vertShader, err := webgl.CreateShader(gl, vertShader, gl.Types.VertexShader)
 	check(err)
 
 	// Create fragment shader object
-	fragShader, err := webgl.CreateShader(gl, shader.Shaders["cube/cube.frag"], gl.Types.FragmentShader)
+	fragShader, err := webgl.CreateShader(gl, fragShader, gl.Types.FragmentShader)
 	check(err)
 
 	shaderProgram, err := webgl.CreateShaderProgram(gl, vertShader, fragShader)

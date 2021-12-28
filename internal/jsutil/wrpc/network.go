@@ -1,10 +1,10 @@
+//go:build js && wasm
 // +build js,wasm
 
 package wrpc
 
 import (
 	"context"
-	"syscall/js"
 	"time"
 
 	"github.com/joomcode/errorx"
@@ -14,67 +14,37 @@ import (
 // as firefox just blazes. Needs testing.
 const ackTimeout = 3 * time.Second
 
-var (
-	links   = 0
+// WorkerRunner spawns webworkers.
+type WorkerRunner struct {
 	workers []*Worker
-)
+}
 
-// SpawnWorker spawns and connects a new webworker.
-func SpawnWorker(ctx context.Context) *Worker {
-	newWorker, err := CreateWorkerFromSource(IndexJS)
+// Spawn a webworker.
+func (r *WorkerRunner) Spawn(ctx context.Context) *Worker {
+	newWorker, err := createWorkerFromSource(IndexJS)
 	if err != nil {
 		errorx.Panic(errorx.Decorate(err, "error creating worker"))
 	}
 
-	linkDone := make(chan struct{})
-
-	// Add links between this and previous workers.
-	for _, w := range workers {
-		existingWorker := w
-
-		messageChannel := js.Global().Get("MessageChannel").New()
-
-		port1 := NewMessagePort(messageChannel.Get("port1"))
-		port2 := NewMessagePort(messageChannel.Get("port2"))
-
-		// Connect the two workers by starting event listeners and schedulers
-		// on both sides so they can communicate.
+	// Connect new worker with all running workers.
+	for _, w := range r.workers {
+		port1, port2 := Pipe()
 		newWorker.StartRemoteScheduler(port1)
-		existingWorker.StartRemoteScheduler(port2)
-
-		links++
-
-		go func() {
-			select {
-			case <-newWorker.ACK():
-			case <-time.After(ackTimeout):
-				panic("ack timeout")
-			}
-			select {
-			case <-existingWorker.ACK():
-			case <-time.After(ackTimeout):
-				panic("ack timeout")
-			}
-			linkDone <- struct{}{}
-		}()
+		w.StartRemoteScheduler(port2)
 	}
+
+	r.workers = append(r.workers, newWorker)
+
+	// Connect our main thread and new worker.
+	mainPort1, mainPort2 := Pipe()
+	newWorker.StartRemoteScheduler(mainPort2)
 
 	go func() {
 		// Start scheduling to new worker.
-		if err := GlobalScheduler.RunScheduler(ctx, newWorker.MessagePort()); err != nil {
+		if err := GlobalScheduler.Run(ctx, mainPort1); err != nil {
 			panic(err)
 		}
 	}()
-
-	workers = append(workers, newWorker)
-
-	if len(workers) > 1 {
-		// Wait for all the new links we created.
-		combinations := cnr(len(workers), 2)
-		for i := 0; i < combinations-links; i++ {
-			<-linkDone
-		}
-	}
 
 	return newWorker
 }

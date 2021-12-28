@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package main
@@ -21,8 +22,6 @@ import (
 	"github.com/mgnsk/go-wasm-demos/public/streaming"
 )
 
-type stringGenArg int
-
 func init() {
 	// Decode the javascript that loads and runs this binary.
 	var err error
@@ -30,8 +29,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
-	gob.Register(stringGenArg(0))
 }
 
 func main() {
@@ -55,7 +52,7 @@ func stringGeneratorWorker(in io.Reader, out io.WriteCloser) {
 
 	// decode args
 	dec := gob.NewDecoder(in)
-	var n stringGenArg
+	var n int
 	if err := dec.Decode(&n); err != nil && err != io.EOF {
 		panic(err)
 	}
@@ -137,15 +134,10 @@ func browser() {
 
 	numWorkers := 3
 	var workers []*wrpc.Worker
-	workerWg := &sync.WaitGroup{}
+	runner := &wrpc.WorkerRunner{}
 	for i := 0; i < numWorkers; i++ {
-		workerWg.Add(1)
-		go func() {
-			defer workerWg.Done()
-			workers = append(workers, wrpc.SpawnWorker(ctx))
-		}()
+		workers = append(workers, runner.Spawn(ctx))
 	}
-	workerWg.Wait()
 	jsutil.Dump("Workers spawned...")
 
 	jsutil.ConsoleLog("Executing streaming chain call")
@@ -160,11 +152,13 @@ func browser() {
 	}
 
 	// Read final output from outputReader.
-	// Passes remoteWriter to the last worker in chain.
-	outputReader, remoteWriter := wrpc.Pipe()
+	// Passes outputWriter to the last worker in chain.
+	outputReader, outputWriter := wrpc.Pipe()
 
 	// Schedule 3 workers to start streaming
-	wrpc.GoPipe(b, remoteWriter, stringGeneratorWorker, upperCaseWorker, reverseWorker)
+	wrpc.GoPipe(b, outputWriter, stringGeneratorWorker, upperCaseWorker, reverseWorker)
+
+	time.Sleep(time.Second)
 
 	scanner := bufio.NewScanner(outputReader)
 	for scanner.Scan() {

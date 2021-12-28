@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package wrpc
@@ -5,7 +6,6 @@ package wrpc
 import (
 	"context"
 	"io"
-	"time"
 )
 
 // RemoteCall is a function which must be statically declared
@@ -36,23 +36,7 @@ func Go(in io.Reader, out io.WriteCloser, f RemoteCall) {
 		remoteReader = p
 	} else if in != nil {
 		remoteReader, inputWriter = Pipe()
-		go func() {
-			ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Second)
-			defer cancel()
-
-			select {
-			case <-inputWriter.RemoteReady():
-			case <-ctx.Done():
-				panic("timeout waiting for inputWriter ready")
-			}
-
-			defer inputWriter.Close()
-			if n, err := io.Copy(inputWriter, in); err != nil {
-				panic(err)
-			} else if n == 0 {
-				panic("0 write to inputWriter")
-			}
-		}()
+		go mustCopy(inputWriter, in)
 	}
 
 	if p, ok := out.(*MessagePort); ok {
@@ -60,20 +44,13 @@ func Go(in io.Reader, out io.WriteCloser, f RemoteCall) {
 		remoteWriter = p
 	} else {
 		outputReader, remoteWriter = Pipe()
-		go func() {
-			defer out.Close()
-			if n, err := io.Copy(out, outputReader); err != nil {
-				panic(err)
-			} else if n == 0 {
-				panic("copy to outputReader: 0 bytes")
-			}
-		}()
+		go mustCopy(out, outputReader)
 	}
 
 	call := Call{
-		RemoteCall: f,
-		Input:      remoteReader,
-		Output:     remoteWriter,
+		rc:     f,
+		input:  remoteReader,
+		output: remoteWriter,
 	}
 
 	go func() {
@@ -97,5 +74,14 @@ func GoPipe(in io.Reader, out io.WriteCloser, calls ...RemoteCall) {
 			Go(prevOutReader, pipeWriter, f)
 			prevOutReader = pipeReader
 		}
+	}
+}
+
+func mustCopy(dst io.WriteCloser, src io.Reader) {
+	defer dst.Close()
+	if n, err := io.Copy(dst, src); err != nil {
+		panic(err)
+	} else if n == 0 {
+		panic("copyAndClose: zero copy")
 	}
 }
