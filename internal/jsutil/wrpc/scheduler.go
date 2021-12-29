@@ -7,8 +7,6 @@ import (
 	"context"
 	"syscall/js"
 	"unsafe"
-
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
 
 // defaultScheduler is main scheduler to schedule to workers.
@@ -19,9 +17,9 @@ type Call struct {
 	// rc will be run in a remote webworker.
 	rc RemoteCall
 	// reader is a port where the worker can read its reader data from.
-	reader Conn
+	reader *Conn
 	// writer is the port where the result gets written into.
-	writer Conn
+	writer *Conn
 }
 
 // NewCallFromJS constructs a call from javascript arguments.
@@ -29,32 +27,35 @@ func NewCallFromJS(rc, input, output js.Value) Call {
 	rcPtr := uintptr(rc.Int())
 	remoteCall := *(*RemoteCall)(unsafe.Pointer(&rcPtr))
 
-	var inputPort Conn
+	var inputConn *Conn
 	if !input.IsUndefined() {
-		inputPort = NewMessagePort(input)
+		inputConn = NewConn(NewMessagePort(input))
 	}
 
 	return Call{
 		rc:     remoteCall,
-		reader: inputPort,
-		writer: NewMessagePort(output),
+		reader: inputConn,
+		writer: NewConn(NewMessagePort(output)),
 	}
 }
 
 // GetJS returns js messages along with transferables that can be sent over a MessagePort.
 func (c Call) GetJS() (messages map[string]interface{}, transferables []interface{}) {
-	rc := *(*uintptr)(unsafe.Pointer(&c.rc))
+	rc := int(*(*uintptr)(unsafe.Pointer(&c.rc)))
+	w := c.writer.JSValue()
+
 	messages = map[string]interface{}{
-		"rc":     int(rc),
-		"output": c.writer,
+		"rc":     rc,
+		"output": w,
 	}
-	transferables = []interface{}{
-		c.writer,
-	}
+	transferables = []interface{}{w}
+
 	if c.reader != nil {
-		messages["input"] = c.reader
-		transferables = append(transferables, c.reader)
+		r := c.reader.JSValue()
+		messages["input"] = r
+		transferables = append(transferables, r)
 	}
+
 	return
 }
 
@@ -76,15 +77,14 @@ func NewScheduler() *Scheduler {
 }
 
 // Run starts a scheduler to schedule calls to port.
-func (s *Scheduler) Run(ctx context.Context, w RawWriter) error {
+func (s *Scheduler) Run(ctx context.Context, w Writer) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case call := <-s.queue:
 			messages, transferables := call.GetJS()
-			jsutil.ConsoleLog(messages, transferables)
-			if err := w.WriteRaw(ctx, messages, transferables); err != nil {
+			if err := w.Write(ctx, messages, transferables); err != nil {
 				return err
 			}
 		}

@@ -33,9 +33,9 @@ func Go(w io.WriteCloser, r io.Reader, calls ...RemoteCall) {
 		if i == len(calls)-1 {
 			goOne(w, prevReader, f)
 		} else {
-			rp, wp := Pipe()
-			goOne(wp, prevReader, f)
-			prevReader = rp
+			rc, wc := ConnPipe()
+			goOne(wc, prevReader, f)
+			prevReader = rc
 		}
 	}
 }
@@ -45,21 +45,21 @@ func goOne(w io.WriteCloser, r io.Reader, f RemoteCall) {
 		panic("Must have output")
 	}
 
-	var remoteReader, inputWriter, outputReader, remoteWriter Conn
+	var remoteReader, inputWriter, outputReader, remoteWriter *Conn
 
-	if p, ok := r.(Conn); ok {
+	if p, ok := r.(*Conn); ok {
 		// Pass Port directly.
 		remoteReader = p
 	} else if r != nil {
-		remoteReader, inputWriter = Pipe()
+		remoteReader, inputWriter = ConnPipe()
 		go mustCopy(inputWriter, r)
 	}
 
-	if p, ok := w.(Conn); ok {
+	if p, ok := w.(*Conn); ok {
 		// Pass Port directly.
 		remoteWriter = p
 	} else {
-		outputReader, remoteWriter = Pipe()
+		outputReader, remoteWriter = ConnPipe()
 		go mustCopy(w, outputReader)
 	}
 

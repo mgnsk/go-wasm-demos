@@ -15,14 +15,14 @@ import (
 // Worker is a browser thread that communicates through net.Conn interface.
 type Worker struct {
 	worker js.Value
-	Port   Conn
+	Port   ReadWriter
 }
 
 // StartRemoteScheduler sends target port to worker and
 // starts a scheduler remotely so that worker schedules
 // wrpc calls to target.
 func (w *Worker) StartRemoteScheduler(ctx context.Context, target js.Value) error {
-	if err := w.Port.WriteRaw(
+	if err := w.Port.Write(
 		ctx,
 		map[string]interface{}{
 			"start_scheduler": true,
@@ -33,7 +33,7 @@ func (w *Worker) StartRemoteScheduler(ctx context.Context, target js.Value) erro
 		return err
 	}
 	// Note: we cannot read from target, the ownership has been moved.
-	if _, err := w.Port.ReadRaw(ctx); err != nil {
+	if _, err := w.Port.Read(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -75,7 +75,7 @@ func (r *WorkerRunner) Spawn(ctx context.Context, indexJS string) (*Worker, erro
 	newWorker.Port = NewMessagePort(worker)
 
 	// Wait for the worker to be ready.
-	if _, err := newWorker.Port.ReadRaw(ctx); err != nil {
+	if _, err := newWorker.Port.Read(ctx); err != nil {
 		return nil, fmt.Errorf("error waiting for worker to become ready: %w", err)
 	}
 

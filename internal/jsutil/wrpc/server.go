@@ -18,9 +18,9 @@ type Server struct {
 }
 
 // HandleMessages handles messages from port.
-func (s *Server) HandleMessages(ctx context.Context, port Conn) {
+func (s *Server) HandleMessages(ctx context.Context, port ReadWriter) {
 	for {
-		data, err := port.ReadRaw(ctx)
+		data, err := port.Read(ctx)
 		if err != nil {
 			panic(err)
 		}
@@ -29,7 +29,7 @@ func (s *Server) HandleMessages(ctx context.Context, port Conn) {
 		case !data.Get("start_scheduler").IsUndefined():
 			target := NewMessagePort(data.Get("port"))
 			// Announce that we have set up listeners for target port.
-			if err := port.WriteRaw(ctx, map[string]interface{}{}, nil); err != nil {
+			if err := port.Write(ctx, map[string]interface{}{}, nil); err != nil {
 				panic(err)
 			}
 			go s.HandleMessages(ctx, target)
@@ -77,7 +77,7 @@ func (s *Server) Run(ctx context.Context) {
 	}
 
 	port := NewMessagePort(js.Global())
-	if err := port.WriteRaw(ctx, map[string]interface{}{}, nil); err != nil {
+	if err := port.Write(ctx, map[string]interface{}{}, nil); err != nil {
 		panic(err)
 	}
 

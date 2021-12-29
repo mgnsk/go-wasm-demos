@@ -2,42 +2,38 @@ package wrpc
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
-	"net"
-	"os"
 	"runtime"
 	"syscall/js"
-	"time"
-
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
 )
 
-// RawReader is a port reader interface.
-type RawReader interface {
-	ReadRaw(context.Context) (js.Value, error)
+// Reader is a port reader interface.
+type Reader interface {
+	Read(context.Context) (js.Value, error)
 }
 
-// RawWriter is a port writer interface.
-type RawWriter interface {
-	WriteRaw(context.Context, map[string]interface{}, []interface{}) error
+// Writer is a port writer interface.
+type Writer interface {
+	Write(context.Context, map[string]interface{}, []interface{}) error
 }
 
-// RawWriteCloser is a port writer and closer interface.
-type RawWriteCloser interface {
-	RawWriter
+// ReadWriter is a port read-writer interface.
+type ReadWriter interface {
+	Reader
+	Writer
+}
+
+// ReadWriteCloser is a port reader, writer and closer interface.
+type ReadWriteCloser interface {
+	ReadWriter
 	io.Closer
 }
 
-// Conn is an interface to MessagePort.
-type Conn interface {
-	RawReader
-	RawWriteCloser
-	net.Conn
+// WriteCloser is a port writer and closer interface.
+type WriteCloser interface {
+	Writer
+	io.Closer
 }
-
-var _ Conn = &MessagePort{}
 
 // MessagePort is a synchronous JS MessagePort wrapper.
 type MessagePort struct {
@@ -46,14 +42,9 @@ type MessagePort struct {
 	errs     chan error
 	ack      chan struct{}
 	done     chan struct{}
-
-	readCtx     context.Context
-	readCancel  context.CancelFunc
-	writeCtx    context.Context
-	writeCancel context.CancelFunc
 }
 
-// Pipe returns a synchronous duplex Conn pipe.
+// Pipe returns a synchronous duplex MessagePort pipe.
 func Pipe() (*MessagePort, *MessagePort) {
 	ch := js.Global().Get("MessageChannel").New()
 	p1 := NewMessagePort(ch.Get("port1"))
@@ -93,8 +84,8 @@ func (p *MessagePort) JSValue() js.Value {
 	return p.value
 }
 
-// ReadMessage reads a single message or error from the port.
-func (p *MessagePort) ReadRaw(ctx context.Context) (js.Value, error) {
+// Read reads a single message or error from the port.
+func (p *MessagePort) Read(ctx context.Context) (js.Value, error) {
 	select {
 	case <-ctx.Done():
 		return js.Value{}, ctx.Err()
@@ -105,8 +96,8 @@ func (p *MessagePort) ReadRaw(ctx context.Context) (js.Value, error) {
 	}
 }
 
-// PostMessage is a blocking postMessage call.
-func (p *MessagePort) WriteRaw(ctx context.Context, messages map[string]interface{}, transferables []interface{}) error {
+// Write is a blocking postMessage call.
+func (p *MessagePort) Write(ctx context.Context, messages map[string]interface{}, transferables []interface{}) error {
 	p.value.Call("postMessage", messages, transferables)
 	select {
 	case <-ctx.Done():
@@ -118,114 +109,12 @@ func (p *MessagePort) WriteRaw(ctx context.Context, messages map[string]interfac
 	}
 }
 
-// Read a byte array message from the port.
-func (p *MessagePort) Read(b []byte) (n int, err error) {
-	ctx := context.Background()
-	if p.readCtx != nil {
-		ctx = p.readCtx
-	}
-
-	data, err := p.ReadRaw(ctx)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return 0, io.ErrClosedPipe
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			return 0, os.ErrDeadlineExceeded
-		}
-		return 0, err
-	}
-
-	arr := data.Get("arr")
-	if arr.IsUndefined() {
-		return 0, fmt.Errorf("invalid message")
-	}
-
-	return array.Buffer(arr).Read(b)
-}
-
-// Write a byte array message into the port.
-func (p *MessagePort) Write(b []byte) (n int, err error) {
-	arr, err := array.CreateBufferFromSlice(b)
-	if err != nil {
-		return 0, err
-	}
-
-	messages := map[string]interface{}{"arr": arr}
-	transferables := []interface{}{arr}
-
-	ctx := context.Background()
-	if p.writeCtx != nil {
-		ctx = p.writeCtx
-	}
-
-	if err := p.WriteRaw(ctx, messages, transferables); err != nil {
-		if errors.Is(err, context.Canceled) {
-			return 0, io.ErrClosedPipe
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			return 0, os.ErrDeadlineExceeded
-		}
-		return 0, err
-	}
-
-	return len(b), nil
-}
-
 // Close the port.
 func (p *MessagePort) Close() error {
 	close(p.done)
-	if p.readCancel != nil {
-		p.readCancel()
-	}
-	if p.writeCancel != nil {
-		p.writeCancel()
-	}
 	p.value.Call("close")
 	return nil
 	// TODO notify close on other side?
-}
-
-// LocalAddr returns the local network address.
-func (p *MessagePort) LocalAddr() net.Addr {
-	return nil
-}
-
-// RemoteAddr returns the remote network address.
-func (p *MessagePort) RemoteAddr() net.Addr {
-	return nil
-}
-
-// SetDeadline sets the deadline for all future operations.
-func (p *MessagePort) SetDeadline(t time.Time) error {
-	if t.IsZero() {
-		p.readCtx, p.readCancel = nil, nil
-		p.writeCtx, p.writeCancel = nil, nil
-	} else {
-		p.readCtx, p.readCancel = context.WithDeadline(context.Background(), t)
-		p.writeCtx, p.writeCancel = context.WithDeadline(context.Background(), t)
-	}
-	return nil
-}
-
-// SetDeadline sets the read deadline for all future operations.
-func (p *MessagePort) SetReadDeadline(t time.Time) error {
-	if t.IsZero() {
-		p.readCtx, p.readCancel = nil, nil
-	} else {
-		p.readCtx, p.readCancel = context.WithDeadline(context.Background(), t)
-	}
-	return nil
-}
-
-// SetDeadline sets the write deadline for all future operations.
-func (p *MessagePort) SetWriteDeadline(t time.Time) error {
-	if t.IsZero() {
-		p.writeCtx, p.writeCancel = nil, nil
-	} else {
-		p.writeCtx, p.writeCancel = context.WithDeadline(context.Background(), t)
-	}
-	return nil
 }
 
 func (p *MessagePort) onError(this js.Value, args []js.Value) interface{} {
@@ -243,6 +132,7 @@ func (p *MessagePort) onMessage(this js.Value, args []js.Value) interface{} {
 		data := args[0].Get("data")
 
 		if !data.Get("__ack").IsUndefined() {
+			// TODO
 			p.ack <- struct{}{}
 			return
 		}
