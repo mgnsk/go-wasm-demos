@@ -3,6 +3,12 @@ tasks:
     usage: Clean application generated files and directories.
     run:
       - command: rm -rf public
+      - command: cp ${GOROOT}/misc/wasm/wasm_exec.js ./
+
+  generate:
+    usage: Generate javascript files.
+    run:
+      - command: bin/render-templates $(pwd)
 
   build:
     usage: Build all apps.

@@ -6,7 +6,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"io"
 	"io/ioutil"
 	"sync"
@@ -17,20 +16,12 @@ import (
 	"github.com/mgnsk/go-wasm-demos/public/benchmark"
 )
 
-func init() {
-	// Decode the javascript that loads and runs this binary.
-	var err error
-	wrpc.IndexJS, err = base64.StdEncoding.DecodeString(benchmark.IndexJS)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func main() {
 	ctx := context.TODO()
 
 	if jsutil.IsWorker {
-		wrpc.RunServer(ctx)
+		s := wrpc.NewServer()
+		s.Run(ctx)
 	} else {
 		browser()
 	}
@@ -47,10 +38,10 @@ func browser() {
 	// Create workers.
 	numWorkers := 4
 	var workers []*wrpc.Worker
-	runner := &wrpc.WorkerRunner{}
+	runner := wrpc.NewWorkerRunner()
 
 	for i := 0; i < numWorkers; i++ {
-		w, err := runner.Spawn(ctx)
+		w, err := runner.Spawn(ctx, benchmark.IndexJS)
 		if err != nil {
 			panic(err)
 		}
@@ -59,7 +50,7 @@ func browser() {
 
 	jsutil.ConsoleLog("Workers spawned...")
 
-	inputReader, inputWriter := wrpc.Pipe()
+	inputReader, inputWriter := io.Pipe()
 	// TODO find the best chunk size
 	go func() {
 		for i := 0; i < 1000; i++ {
@@ -70,8 +61,8 @@ func browser() {
 		inputWriter.Close()
 	}()
 
-	pipeReader, pipeWriter := wrpc.Pipe()
-	wrpc.Go(inputReader, pipeWriter, func(w io.WriteCloser, r io.Reader) {
+	pipeReader, pipeWriter := io.Pipe()
+	wrpc.Go(pipeWriter, inputReader, func(w io.WriteCloser, r io.Reader) {
 		defer w.Close()
 		if _, err := io.Copy(w, r); err != nil {
 			panic(err)

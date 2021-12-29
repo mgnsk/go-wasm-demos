@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/gob"
 	"io"
 	"net/textproto"
@@ -25,19 +24,14 @@ import (
 var wavURL string
 
 func init() {
-	// Decode the javascript that loads and runs this binary.
-	var err error
-	wrpc.IndexJS, err = base64.StdEncoding.DecodeString(audiotrack.IndexJS)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func main() {
 	ctx := context.TODO()
 
 	if jsutil.IsWorker {
-		wrpc.RunServer(ctx)
+		s := wrpc.NewServer()
+		s.Run(ctx)
 	} else {
 		browser()
 	}
@@ -95,11 +89,11 @@ const (
 func startAudio(ctx context.Context) {
 	// Create worker functions.
 
-	runner := &wrpc.WorkerRunner{}
+	runner := wrpc.NewWorkerRunner()
 
 	for i := 0; i < 4; i++ {
 		// TODO the worker never gets killed.
-		runner.Spawn(context.TODO())
+		runner.Spawn(context.TODO(), audiotrack.IndexJS)
 	}
 
 	jsutil.ConsoleLog("Workers spawned...")
@@ -107,7 +101,7 @@ func startAudio(ctx context.Context) {
 	audioDecoder := func(w io.WriteCloser, _ io.Reader) {
 		jsutil.ConsoleLog("1. worker")
 		// Schedule a subworker to fetch and decode the chunks.
-		chunkReader, chunkWriter := wrpc.Pipe()
+		chunkReader, chunkWriter := io.Pipe()
 		wrpc.Go(chunkWriter, nil, func(w io.WriteCloser, _ io.Reader) {
 			jsutil.ConsoleLog("2. worker")
 			defer w.Close()
@@ -158,8 +152,8 @@ func startAudio(ctx context.Context) {
 	}
 
 	// Master tracks.
-	masterReader, masterWriter := wrpc.Pipe()
-	wrpc.GoPipe(nil, masterWriter, audioDecoder, audioPassthrough)
+	masterReader, masterWriter := io.Pipe()
+	wrpc.Go(masterWriter, nil, audioDecoder, audioPassthrough)
 	reader := textproto.NewReader(bufio.NewReader(masterReader))
 
 	audioCtx := js.Global().Get("AudioContext").New()

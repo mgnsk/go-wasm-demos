@@ -11,31 +11,33 @@ import (
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
 
-var callCount uint64
+// Server handles MessagePort calls on a webworker.
+type Server struct {
+	callCount uint64
+	sched     *Scheduler
+}
 
-func HandleMessages(ctx context.Context, r RawReader) {
+// HandleMessages handles messages from port.
+func (s *Server) HandleMessages(ctx context.Context, port Conn) {
 	for {
-		data, err := r.ReadRaw(ctx)
+		data, err := port.ReadRaw(ctx)
 		if err != nil {
 			panic(err)
 		}
 
-		jsutil.ConsoleLog("got message", data)
-
-		switch true {
-		// Start the scheduler to specified port.
+		switch {
 		case !data.Get("start_scheduler").IsUndefined():
 			target := NewMessagePort(data.Get("port"))
-			go HandleMessages(ctx, target)
+			// Announce that we have set up listeners for target port.
+			if err := port.WriteRaw(ctx, map[string]interface{}{}, nil); err != nil {
+				panic(err)
+			}
+			go s.HandleMessages(ctx, target)
 			go func() {
-				if err := GlobalScheduler.Run(ctx, target); err != nil {
+				if err := s.sched.Run(ctx, target); err != nil {
 					panic(err)
 				}
 			}()
-
-			if err := target.WriteRaw(ctx, map[string]interface{}{}); err != nil {
-				panic(err)
-			}
 
 		case !data.Get("rc").IsUndefined():
 			call := NewCallFromJS(
@@ -47,36 +49,49 @@ func HandleMessages(ctx context.Context, r RawReader) {
 			// Currently allow 1 concurrent call per worker.
 			// TODO configure this on runtime.
 			// It can happen if multiple ports are scheduling into this one.
-			if atomic.AddUint64(&callCount, 1) > 1 {
+			if atomic.LoadUint64(&s.callCount)+1 > 1 {
 				jsutil.ConsoleLog("Rescheduling...")
 				// Reschedule until we have a free worker.
 				go func() {
-					if err := GlobalScheduler.Call(context.TODO(), call); err != nil {
+					if err := s.sched.Call(context.TODO(), call); err != nil {
 						panic(err)
 					}
 				}()
 			} else {
-				go call.Execute()
+				atomic.AddUint64(&s.callCount, 1)
+				go func() {
+					defer atomic.AddUint64(&s.callCount, ^uint64(0))
+					call.Execute()
+				}()
 			}
+		default:
+			panic("invalid message type")
 		}
 	}
 }
 
-// RunServer runs on the webworker side to start the server implementing the WebRPC.
-func RunServer(ctx context.Context) {
+// Run the webworker MessagePort server.
+func (s *Server) Run(ctx context.Context) {
 	if !jsutil.IsWorker {
 		panic("Must have webworker environment")
 	}
 
 	port := NewMessagePort(js.Global())
-	go HandleMessages(ctx, port)
-
-	if err := port.WriteRaw(ctx, map[string]interface{}{}); err != nil {
+	if err := port.WriteRaw(ctx, map[string]interface{}{}, nil); err != nil {
 		panic(err)
 	}
+
+	go s.HandleMessages(ctx, port)
 
 	jsutil.ConsoleLog("Worker started")
 
 	<-ctx.Done()
 	panic(ctx.Err())
+}
+
+// NewServer creates a new server instance.
+func NewServer() *Server {
+	return &Server{
+		sched: defaultScheduler,
+	}
 }

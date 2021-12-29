@@ -24,14 +24,30 @@ type RemoteCall func(io.WriteCloser, io.Reader)
 // 1) f runs in a new goroutine on the first worker that receives it.
 // 2) f can call Go with a new RemoteCall.
 // Workers can then act like a mesh where any chain of stream is concurrently active
-func Go(w io.WriteCloser, r io.Reader, f RemoteCall) {
+//
+// If multiple RemoteCalls are provided, each call is run in a different worker by piping output
+// from one worker to the next worker and letting the last worker write directly to w.
+func Go(w io.WriteCloser, r io.Reader, calls ...RemoteCall) {
+	prevReader := r
+	for i, f := range calls {
+		if i == len(calls)-1 {
+			goOne(w, prevReader, f)
+		} else {
+			rp, wp := Pipe()
+			goOne(wp, prevReader, f)
+			prevReader = rp
+		}
+	}
+}
+
+func goOne(w io.WriteCloser, r io.Reader, f RemoteCall) {
 	if w == nil {
 		panic("Must have output")
 	}
 
-	var remoteReader, inputWriter, outputReader, remoteWriter Port
+	var remoteReader, inputWriter, outputReader, remoteWriter Conn
 
-	if p, ok := r.(Port); ok {
+	if p, ok := r.(Conn); ok {
 		// Pass Port directly.
 		remoteReader = p
 	} else if r != nil {
@@ -39,7 +55,7 @@ func Go(w io.WriteCloser, r io.Reader, f RemoteCall) {
 		go mustCopy(inputWriter, r)
 	}
 
-	if p, ok := w.(Port); ok {
+	if p, ok := w.(Conn); ok {
 		// Pass Port directly.
 		remoteWriter = p
 	} else {
@@ -55,26 +71,10 @@ func Go(w io.WriteCloser, r io.Reader, f RemoteCall) {
 
 	go func() {
 		// Schedule the call to first receiving worker.
-		if err := GlobalScheduler.Call(context.TODO(), call); err != nil {
+		if err := defaultScheduler.Call(context.TODO(), call); err != nil {
 			panic(err)
 		}
 	}()
-}
-
-// GoPipe runs goroutines in a chain, piping each worker's output into next input.
-func GoPipe(in io.Reader, out io.WriteCloser, calls ...RemoteCall) {
-	prevOutReader := in
-	for i, f := range calls {
-		if i == len(calls)-1 {
-			// The last worker writes directly into out.
-			Go(out, prevOutReader, f)
-
-		} else {
-			pipeReader, pipeWriter := Pipe()
-			Go(pipeWriter, prevOutReader, f)
-			prevOutReader = pipeReader
-		}
-	}
 }
 
 func mustCopy(dst io.WriteCloser, src io.Reader) {

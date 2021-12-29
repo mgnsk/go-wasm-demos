@@ -7,19 +7,21 @@ import (
 	"context"
 	"syscall/js"
 	"unsafe"
+
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
 
-// GlobalScheduler is main scheduler to schedule to workers.
-var GlobalScheduler = NewScheduler()
+// defaultScheduler is main scheduler to schedule to workers.
+var defaultScheduler = NewScheduler()
 
 // Call is a remote call that can be scheduled to a worker.
 type Call struct {
 	// rc will be run in a remote webworker.
 	rc RemoteCall
 	// reader is a port where the worker can read its reader data from.
-	reader Port
+	reader Conn
 	// writer is the port where the result gets written into.
-	writer Port
+	writer Conn
 }
 
 // NewCallFromJS constructs a call from javascript arguments.
@@ -27,7 +29,7 @@ func NewCallFromJS(rc, input, output js.Value) Call {
 	rcPtr := uintptr(rc.Int())
 	remoteCall := *(*RemoteCall)(unsafe.Pointer(&rcPtr))
 
-	var inputPort Port
+	var inputPort Conn
 	if !input.IsUndefined() {
 		inputPort = NewMessagePort(input)
 	}
@@ -81,6 +83,7 @@ func (s *Scheduler) Run(ctx context.Context, w RawWriter) error {
 			return ctx.Err()
 		case call := <-s.queue:
 			messages, transferables := call.GetJS()
+			jsutil.ConsoleLog(messages, transferables)
 			if err := w.WriteRaw(ctx, messages, transferables); err != nil {
 				return err
 			}
