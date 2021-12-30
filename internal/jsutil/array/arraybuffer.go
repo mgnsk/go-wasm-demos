@@ -4,158 +4,129 @@
 package array
 
 import (
-	"errors"
 	"fmt"
 	"syscall/js"
 
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
 
-// TODO documentation is a bit rough.
+// ArrayBuffer is a JS ArrayBuffer.
+type ArrayBuffer js.Value
 
-// Buffer is a JS ArrayBuffer.
-type Buffer js.Value
-
-func createBuffer(slice interface{}, byteLength int) (Buffer, error) {
-	if slice == nil {
-		return Buffer(js.Null()), fmt.Errorf("createBuffer: slice must not be ni")
-	}
-
-	uint8Array := NewBuffer(byteLength).Uint8Array()
-	if n := js.CopyBytesToJS(uint8Array.JSValue(), jsutil.SliceToByteSlice(slice)); n != byteLength {
-		return Buffer{}, fmt.Errorf("createBuffer: copied: %d, expected: %d", n, byteLength)
-	}
-	return Buffer(uint8Array.Buffer()), nil
-}
-
-// CreateBufferFromSlice copies and creates a read only Buffer buffer.
-func CreateBufferFromSlice(s interface{}) (Buffer, error) {
-	switch s := s.(type) {
-	case []int8:
-		return createBuffer(s, len(s))
-	case []int16:
-		return createBuffer(s, len(s)*2)
-	case []int32:
-		return createBuffer(s, len(s)*4)
-	case []int64:
-		return createBuffer(s, len(s)*8)
-	case []uint8:
-		return createBuffer(s, len(s))
-	case []uint16:
-		return createBuffer(s, len(s)*2)
-	case []uint32:
-		return createBuffer(s, len(s)*4)
-	case []uint64:
-		return createBuffer(s, len(s)*8)
-	case []float32:
-		return createBuffer(s, len(s)*4)
-	case []float64:
-		return createBuffer(s, len(s)*8)
+// NewArrayBufferFromSlice creates a new read-only ArrayBuffer from slice.
+func NewArrayBufferFromSlice(s interface{}) ArrayBuffer {
+	switch slice := s.(type) {
+	case []int8,
+		[]int16,
+		[]int32,
+		[]int64,
+		[]uint8,
+		[]uint16,
+		[]uint32,
+		[]uint64,
+		[]float32,
+		[]float64:
+		s := jsutil.SliceToByteSlice(slice)
+		buf := NewArrayBuffer(len(s))
+		if n := js.CopyBytesToJS(buf.Uint8Array().JSValue(), s); n != len(s) {
+			panic(fmt.Errorf("NewArrayBufferFromSlice: copied: %d, expected: %d", n, len(s)))
+		}
+		return buf
 	default:
-		return Buffer(js.Null()), errors.New("CreateBufferFromSlice: invalid type")
+		panic(fmt.Errorf("NewArrayBufferFromSlice: invalid type '%T'", s))
 	}
 }
 
-// NewBuffer creates a new JS byte buffer.
-func NewBuffer(size int) Buffer {
-	return Buffer(
+// NewArrayBuffer creates a new JS ArrayBuffer.
+func NewArrayBuffer(size int) ArrayBuffer {
+	return ArrayBuffer(
 		js.Global().Get("ArrayBuffer").New(size),
 	)
 }
 
-// JSValue returns JS value for a.
-func (a Buffer) JSValue() js.Value {
+// JSValue returns the underlying JS value..
+func (a ArrayBuffer) JSValue() js.Value {
 	return js.Value(a)
 }
 
 // Int8Array view over the array.
-func (a Buffer) Int8Array() TypedArray {
+func (a ArrayBuffer) Int8Array() TypedArray {
 	return TypedArray(
 		js.Global().Get("Int8Array").New(a.JSValue(), 0, a.Len()),
 	)
 }
 
 // Int16Array view over the array.
-func (a Buffer) Int16Array() TypedArray {
+func (a ArrayBuffer) Int16Array() TypedArray {
 	return TypedArray(
 		js.Global().Get("Int16Array").New(a.JSValue(), 0, a.Len()/2),
 	)
 }
 
 // Int32Array view over the array.
-func (a Buffer) Int32Array() TypedArray {
+func (a ArrayBuffer) Int32Array() TypedArray {
 	return TypedArray(
 		js.Global().Get("Int32Array").New(a.JSValue(), 0, a.Len()/4),
 	)
 }
 
 // BigInt64Array view over the array.
-func (a Buffer) BigInt64Array() TypedArray {
+func (a ArrayBuffer) BigInt64Array() TypedArray {
 	return TypedArray(
 		js.Global().Get("BigInt64Array").New(a.JSValue(), 0, a.Len()/8),
 	)
 }
 
 // Uint8Array view over the array buffer.
-func (a Buffer) Uint8Array() TypedArray {
+func (a ArrayBuffer) Uint8Array() TypedArray {
 	return TypedArray(
 		js.Global().Get("Uint8Array").New(a.JSValue(), 0, a.Len()),
 	)
 }
 
 // Uint16Array view over the array buffer.
-func (a Buffer) Uint16Array() TypedArray {
+func (a ArrayBuffer) Uint16Array() TypedArray {
 	return TypedArray(
 		js.Global().Get("Uint16Array").New(a.JSValue(), 0, a.Len()/2),
 	)
 }
 
 // Uint32Array view over the array buffer.
-func (a Buffer) Uint32Array() TypedArray {
+func (a ArrayBuffer) Uint32Array() TypedArray {
 	return TypedArray(
 		js.Global().Get("Uint32Array").New(a.JSValue(), 0, a.Len()/4),
 	)
 }
 
 // BigUint64Array view over the array.
-func (a Buffer) BigUint64Array() TypedArray {
+func (a ArrayBuffer) BigUint64Array() TypedArray {
 	return TypedArray(
 		js.Global().Get("BigUint64Array").New(a.JSValue(), 0, a.Len()/8),
 	)
 }
 
 // Float32Array view over the array buffer.
-func (a Buffer) Float32Array() TypedArray {
+func (a ArrayBuffer) Float32Array() TypedArray {
 	return TypedArray(
 		js.Global().Get("Float32Array").New(a.JSValue(), 0, a.Len()/4),
 	)
 }
 
 // Float64Array view over the array buffer.
-func (a Buffer) Float64Array() TypedArray {
+func (a ArrayBuffer) Float64Array() TypedArray {
 	return TypedArray(
 		js.Global().Get("Float64Array").New(a.JSValue(), 0, a.Len()/8),
 	)
 }
 
 // Len returns the length of byte array.
-func (a Buffer) Len() int {
+func (a ArrayBuffer) Len() int {
 	return a.JSValue().Get("byteLength").Int()
 }
 
-// CopyBytes copies out bytes from js array buffer.
-func (a Buffer) Read(b []byte) (n int, err error) {
-	length := a.Len()
-	if n := js.CopyBytesToGo(b, a.Uint8Array().JSValue()); n != length {
-		return 0, fmt.Errorf("CopyBytes: copied: %d, expected: %d", n, length)
-	}
-	return length, nil
-}
-
-// Write bytes into array.
-func (a Buffer) Write(p []byte) (n int, err error) {
-	if n := js.CopyBytesToJS(a.Uint8Array().JSValue(), p); n != len(p) {
-		return 0, fmt.Errorf("Write: copied: %d, expected: %d", n, len(p))
-	}
-	return n, nil
+// Bytes returns the ArrayBuffer bytes.
+func (a ArrayBuffer) Bytes() []byte {
+	buf := make([]byte, a.Len())
+	js.CopyBytesToGo(buf, a.Uint8Array().JSValue())
+	return buf
 }

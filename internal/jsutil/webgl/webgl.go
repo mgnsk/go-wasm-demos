@@ -1,9 +1,9 @@
+//go:build js && wasm
 // +build js,wasm
 
 package webgl
 
 import (
-	"fmt"
 	"syscall/js"
 	"unsafe"
 
@@ -158,11 +158,7 @@ func NewGL(canvas js.Value) (*GL, error) {
 func (gl *GL) UniformMatrix4fv(uniform js.Value, transform mgl32.Mat4) {
 	var buf *[16]float64
 	buf = (*[16]float64)(unsafe.Pointer(&transform))
-	arr, err := array.CreateTypedArrayFromSlice(buf[:])
-	if err != nil {
-		panic(fmt.Errorf("error creating TypedArray: %s", err))
-	}
-
+	arr := array.NewTypedArrayFromSlice(buf[:])
 	gl.Ctx().Call("uniformMatrix4fv", uniform, false, arr.JSValue())
 }
 

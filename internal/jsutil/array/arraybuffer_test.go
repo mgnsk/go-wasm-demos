@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package array_test
@@ -9,15 +10,21 @@ import (
 )
 
 var _ = Describe("ArrayBuffer", func() {
-	var a array.Buffer
+	var a array.ArrayBuffer
 
 	When("Array buffer is created", func() {
 		BeforeEach(func() {
-			a = array.NewBuffer(129)
+			a = array.NewArrayBuffer(129)
 		})
 
 		It("has correct size", func() {
-			Expect(a.JSValue().Get("byteLength").Int()).To(Equal(129))
+			Expect(a.Len()).To(Equal(129))
+		})
+
+		It("holds correct data", func() {
+			data := []byte("Hello world!")
+			ab := array.NewArrayBufferFromSlice(data)
+			Expect(ab.Bytes()).To(Equal(data))
 		})
 	})
 })

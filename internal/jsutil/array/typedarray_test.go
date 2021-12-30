@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package array_test
@@ -17,26 +18,19 @@ var _ = Describe("TypedArray", func() {
 	Context("Standard slice copied to JS typed buffer and back", func() {
 		DescribeTable("data table",
 			func(data interface{}) {
-				a, err := array.CreateTypedArrayFromSlice(data)
-				Expect(err).To(BeNil())
+				arr := array.NewTypedArrayFromSlice(data)
 
-				b, err := a.CopyBytes()
+				b := arr.Buffer().Bytes()
 				Expect(b).NotTo(BeEmpty())
-				Expect(err).To(BeNil())
 
-				if s, ok := data.([]byte); ok {
-					Expect(s).To(Equal(b))
+				if dataBytes, ok := data.([]byte); ok {
+					Expect(dataBytes).To(Equal(b))
 					return
 				}
 
-				// Get the first slice element.
-				rv := reflect.ValueOf(data)
-				element := rv.Index(0)
-				elementType := element.Type().String()
-
 				decoder := &jsutil.ByteDecoder{}
 				rd := reflect.ValueOf(decoder)
-				methodName := strings.Title(elementType) + "Slice"
+				methodName := strings.Title(reflect.TypeOf(data).Elem().String()) + "Slice"
 				method := rd.MethodByName(methodName)
 				results := method.Call([]reflect.Value{reflect.ValueOf(b)})
 

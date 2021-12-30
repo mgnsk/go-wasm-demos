@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package webgl
@@ -54,8 +55,8 @@ func CreateProgram(gl *GL, vertShaderSrc, fragShaderSrc string, attribs []string
 
 	program := gl.Ctx().Call("createProgram")
 	// TODO check gl errors
-	gl.Ctx().Call("attachShader", program, vertShader)
-	gl.Ctx().Call("attachShader", program, fragShader)
+	gl.Ctx().Call("attachShader", program, vertShader.JSValue())
+	gl.Ctx().Call("attachShader", program, fragShader.JSValue())
 
 	// Bind shader attributes.
 	for idx, attrib := range attribs {
@@ -65,7 +66,7 @@ func CreateProgram(gl *GL, vertShaderSrc, fragShaderSrc string, attribs []string
 	gl.Ctx().Call("linkProgram", program)
 
 	// Check the link status
-	linked := gl.Ctx().Call("getProgramParameter", program, gl.Types.LinkStatus)
+	linked := gl.Ctx().Call("getProgramParameter", program, gl.Types.LinkStatus.JSValue())
 	if !linked.Truthy() {
 		lastError := gl.Ctx().Call("getProgramInfoLog", program).String()
 		gl.Ctx().Call("deleteProgram", program)
@@ -209,7 +210,7 @@ func createUniformSetters(gl *GL, program js.Value) map[string]func(g *GL, val i
 
 	uniformSetters := make(map[string]func(gl *GL, val interface{}))
 
-	numUniforms := gl.Ctx().Call("getProgramParameter", program, gl.Types.ActiveUniforms).Int()
+	numUniforms := gl.Ctx().Call("getProgramParameter", program, gl.Types.ActiveUniforms.JSValue()).Int()
 	for i := 0; i < numUniforms; i++ {
 		uniformInfo := gl.Ctx().Call("getActiveUniform", program, i)
 		if !uniformInfo.Truthy() {
@@ -227,7 +228,7 @@ func createUniformSetters(gl *GL, program js.Value) map[string]func(g *GL, val i
 func createAttribsAndSetters(gl *GL, program js.Value) (map[string]js.Value, map[string]func(a *Attrib)) {
 	createAttribSetter := func(location js.Value) func(a *Attrib) {
 		return func(a *Attrib) {
-			gl.Ctx().Call("bindBuffer", gl.Types.ArrayBuffer, a.Buffer)
+			gl.Ctx().Call("bindBuffer", gl.Types.ArrayBuffer.JSValue(), a.Buffer.JSValue())
 
 			// turn on getting data out of a buffer for this attribute
 			gl.Ctx().Call("enableVertexAttribArray", location)
@@ -247,7 +248,7 @@ func createAttribsAndSetters(gl *GL, program js.Value) (map[string]js.Value, map
 	attribs := make(map[string]js.Value)
 	attribSetters := make(map[string]func(a *Attrib))
 
-	numAttribs := gl.Ctx().Call("getProgramParameter", program, gl.Types.ActiveAttributes).Int()
+	numAttribs := gl.Ctx().Call("getProgramParameter", program, gl.Types.ActiveAttributes.JSValue()).Int()
 	for i := 0; i < numAttribs; i++ {
 		attribInfo := gl.Ctx().Call("getActiveAttrib", program, i)
 		if !attribInfo.Truthy() {

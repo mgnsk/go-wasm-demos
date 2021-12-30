@@ -61,6 +61,9 @@ func (c Call) GetJS() (messages map[string]interface{}, transferables []interfac
 
 // Execute the call locally.
 func (c Call) Execute() {
+	if c.reader != nil {
+		defer c.reader.Close()
+	}
 	c.rc(c.writer, c.reader)
 }
 

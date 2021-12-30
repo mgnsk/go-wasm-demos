@@ -89,6 +89,8 @@ func (p *MessagePort) Read(ctx context.Context) (js.Value, error) {
 	select {
 	case <-ctx.Done():
 		return js.Value{}, ctx.Err()
+	case <-p.done:
+		return js.Value{}, io.ErrClosedPipe
 	case err := <-p.errs:
 		return js.Value{}, err
 	case msg := <-p.messages:
@@ -102,6 +104,8 @@ func (p *MessagePort) Write(ctx context.Context, messages map[string]interface{}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-p.done:
+		return io.ErrClosedPipe
 	case err := <-p.errs:
 		return err
 	case <-p.ack:
@@ -111,39 +115,48 @@ func (p *MessagePort) Write(ctx context.Context, messages map[string]interface{}
 
 // Close the port.
 func (p *MessagePort) Close() error {
+	select {
+	case <-p.done:
+		return io.ErrClosedPipe
+	default:
+	}
 	close(p.done)
+	p.value.Call("postMessage", map[string]interface{}{"__eof": true})
 	p.value.Call("close")
 	return nil
-	// TODO notify close on other side?
 }
 
-func (p *MessagePort) onError(this js.Value, args []js.Value) interface{} {
+func (p *MessagePort) onError(_ js.Value, args []js.Value) interface{} {
 	go func() {
 		select {
 		case <-p.done:
-		case p.errs <- js.Error{args[0]}:
+		case p.errs <- js.Error{Value: args[0]}:
 		}
 	}()
 	return nil
 }
 
-func (p *MessagePort) onMessage(this js.Value, args []js.Value) interface{} {
+func (p *MessagePort) onMessage(_ js.Value, args []js.Value) interface{} {
 	go func() {
 		data := args[0].Get("data")
-
-		if !data.Get("__ack").IsUndefined() {
-			// TODO
-			p.ack <- struct{}{}
-			return
-		}
-
-		defer p.value.Call("postMessage", map[string]interface{}{"__ack": true})
-
-		select {
-		case <-p.done:
-		case p.messages <- data:
+		switch {
+		case !data.Get("__ack").IsUndefined():
+			select {
+			case <-p.done:
+			case p.ack <- struct{}{}:
+			}
+		case !data.Get("__eof").IsUndefined():
+			select {
+			case <-p.done:
+			case p.errs <- io.EOF:
+			}
+		default:
+			defer p.value.Call("postMessage", map[string]interface{}{"__ack": true})
+			select {
+			case <-p.done:
+			case p.messages <- data:
+			}
 		}
 	}()
-
 	return nil
 }

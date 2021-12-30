@@ -5,9 +5,8 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
-	"encoding/gob"
+	"encoding/json"
 	"io"
 	"net/textproto"
 	"sync"
@@ -20,11 +19,6 @@ import (
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
 	"github.com/mgnsk/go-wasm-demos/public/audiotrack"
 )
-
-var wavURL string
-
-func init() {
-}
 
 func main() {
 	ctx := context.TODO()
@@ -53,18 +47,12 @@ func browser() {
 }
 
 func forEachChunk(reader *textproto.Reader, cb func(audio.Chunk)) {
+	d := json.NewDecoder(reader.DotReader())
 	for {
-		b, err := reader.ReadDotBytes()
-		if err != nil {
+		var chunk audio.Chunk
+		if err := d.Decode(&chunk); err != nil {
 			panic(err)
 		}
-
-		// TODO ending dot strip?
-
-		var chunk audio.Chunk
-		d := gob.NewDecoder(bytes.NewReader(b))
-		d.Decode(&chunk)
-
 		cb(chunk)
 	}
 }
@@ -73,7 +61,7 @@ func mustWriteChunk(writer *textproto.Writer, chunk audio.Chunk) {
 	dw := writer.DotWriter()
 	defer dw.Close()
 
-	e := gob.NewEncoder(dw)
+	e := json.NewEncoder(dw)
 	if err := e.Encode(chunk); err != nil {
 		panic(err)
 	}
@@ -106,9 +94,11 @@ func startAudio(ctx context.Context) {
 			jsutil.ConsoleLog("2. worker")
 			defer w.Close()
 			writer := textproto.NewWriter(bufio.NewWriter(w))
+			defer writer.W.Flush()
 
 			// Currently the wav decoder requires the entire file to be downloaded before it can start producing chunks.
-			chunks := audio.GetWavChunks(wavURL, chunkSize)
+			// chunks := audio.GetWavChunks(wavURL, chunkSize)
+			chunks := audio.GenerateChunks(5*time.Second, chunkSize)
 
 			// Buffer up to x ms into future.
 			tb := audio.NewTimeBuffer(bufferDuration)
@@ -131,6 +121,7 @@ func startAudio(ctx context.Context) {
 			defer w.Close()
 			reader := textproto.NewReader(bufio.NewReader(r))
 			writer := textproto.NewWriter(bufio.NewWriter(w))
+			defer writer.W.Flush()
 
 			forEachChunk(reader, func(chunk audio.Chunk) {
 				// Apply gain FX.
@@ -171,15 +162,8 @@ func startAudio(ctx context.Context) {
 			right[i] = chunk.Samples[j+1]
 		}
 
-		arrLeft, err := array.CreateBufferFromSlice(left)
-		if err != nil {
-			panic(err)
-		}
-
-		arrRight, err := array.CreateBufferFromSlice(right)
-		if err != nil {
-			panic(err)
-		}
+		arrLeft := array.NewArrayBufferFromSlice(left)
+		arrRight := array.NewArrayBufferFromSlice(right)
 
 		player.Call("playNext", arrLeft.Float32Array(), arrRight.Float32Array())
 	})

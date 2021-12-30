@@ -10,7 +10,6 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/webgl"
@@ -71,59 +70,50 @@ func main() {
 		-0.5, -0.5, 0,
 		0.5, -0.5, 0,
 	}
-	vertexArr := array.Must(array.CreateTypedArrayFromSlice(verticesNative))
+	vertexArr := array.NewTypedArrayFromSlice(verticesNative)
 	vertexBuffer, err := webgl.CreateBuffer(gl, vertexArr, gl.Types.ArrayBuffer, gl.Types.StaticDraw)
 	check(err)
-
-	jsutil.ConsoleLog(vertexBuffer)
 
 	//// INDEX BUFFER ////
 	indicesNative := []uint32{
 		2, 1, 0,
 	}
-	indexArr := array.Must(array.CreateTypedArrayFromSlice(indicesNative))
+	indexArr := array.NewTypedArrayFromSlice(indicesNative)
 	indexBuffer, err := webgl.CreateBuffer(gl, indexArr, gl.Types.ElementArrayBuffer, gl.Types.StaticDraw)
 	check(err)
-
-	jsutil.ConsoleLog(indexBuffer)
 
 	// 	//// Shaders ////
 
 	attribs := []string{"coordinates"}
 
-	spew.Dump(vertShader)
-
 	triangleProgram, err := webgl.CreateProgram(gl, vertShader, fragShader, attribs)
 	check(err)
 
-	spew.Dump(triangleProgram)
-	jsutil.ConsoleLog(triangleProgram)
-
 	// Clear the canvas
 	gl.Ctx().Call("clearColor", 0.5, 0.5, 0.5, 0.9)
-	gl.Ctx().Call("clear", gl.Types.ColorBufferBit)
+	gl.Ctx().Call("clear", gl.Types.ColorBufferBit.JSValue())
 
 	// Enable the depth test
-	gl.Ctx().Call("enable", gl.Types.DepthTest)
+	gl.Ctx().Call("enable", gl.Types.DepthTest.JSValue())
 
 	// Set the view port
 	gl.Ctx().Call("viewport", 0, 0, width, height)
 
-	gl.Ctx().Call("useProgram", triangleProgram)
+	gl.Ctx().Call("useProgram", triangleProgram.JSValue())
 
 	//// Associating shaders to buffer objects ////
 
 	// Bind vertex buffer object
-	gl.Ctx().Call("bindBuffer", gl.Types.ArrayBuffer, vertexBuffer)
+	gl.Ctx().Call("bindBuffer", gl.Types.ArrayBuffer.JSValue(), vertexBuffer.JSValue())
 
 	// Bind index buffer object
-	gl.Ctx().Call("bindBuffer", gl.Types.ElementArrayBuffer, indexBuffer)
+	gl.Ctx().Call("bindBuffer", gl.Types.ElementArrayBuffer.JSValue(), indexBuffer.JSValue())
 
 	// Get the attribute location
-	coord := gl.Ctx().Call("getAttribLocation", triangleProgram, "coordinates")
+	coord := gl.Ctx().Call("getAttribLocation", triangleProgram.JSValue(), "coordinates")
 
 	// Point an attribute to the currently bound VBO
-	gl.Ctx().Call("vertexAttribPointer", coord, 3, gl.Types.Float, false, 0, 0)
+	gl.Ctx().Call("vertexAttribPointer", coord, 3, gl.Types.Float.JSValue(), false, 0, 0)
 
 	// Enable the attribute
 	gl.Ctx().Call("enableVertexAttribArray", coord)
@@ -166,16 +156,16 @@ func main() {
 
 		// Clear the canvas
 		gl.Ctx().Call("clearColor", 0.5, 0.5, 0.5, 0.9)
-		gl.Ctx().Call("clear", gl.Types.ColorBufferBit)
+		gl.Ctx().Call("clear", gl.Types.ColorBufferBit.JSValue())
 
 		// Enable the depth test
-		gl.Ctx().Call("enable", gl.Types.DepthTest)
+		gl.Ctx().Call("enable", gl.Types.DepthTest.JSValue())
 
 		// Set the view port
 		gl.Ctx().Call("viewport", 0, 0, width, height)
 
 		// Draw the triangle
-		gl.Ctx().Call("drawElements", gl.Types.Triangles, len(indicesNative), gl.Types.UnsignedShort, 0)
+		gl.Ctx().Call("drawElements", gl.Types.Triangles.JSValue(), len(indicesNative), gl.Types.UnsignedShort.JSValue(), 0)
 
 		fpsStats.Call("end")
 		// Call next frame

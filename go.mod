@@ -3,6 +3,7 @@ module github.com/mgnsk/go-wasm-demos
 go 1.16
 
 require (
+	github.com/bspaans/bleep v0.0.0-20211028230115-b38988fb11ca
 	github.com/chewxy/math32 v1.0.6
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-audio/audio v1.0.0

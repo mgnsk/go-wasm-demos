@@ -104,9 +104,9 @@ func main() {
 	jsutil.ConsoleLog(s)
 
 	// Convert buffers to JS TypedArrays
-	colors := array.Must(array.CreateTypedArrayFromSlice(colorsNative))
-	vertices := array.Must(array.CreateTypedArrayFromSlice(verticesNative))
-	indices := array.Must(array.CreateTypedArrayFromSlice(indicesNative))
+	colors := array.NewTypedArrayFromSlice(colorsNative)
+	vertices := array.NewTypedArrayFromSlice(verticesNative)
+	indices := array.NewTypedArrayFromSlice(indicesNative)
 
 	// Create vertex buffer
 	vertexBuffer, err := webgl.CreateBuffer(gl, vertices, gl.Types.ArrayBuffer, gl.Types.StaticDraw)
@@ -141,14 +141,14 @@ func main() {
 
 	// Associate attributes to vertex shader
 
-	gl.Ctx().Call("bindBuffer", gl.Types.ArrayBuffer, vertexBuffer)
+	gl.Ctx().Call("bindBuffer", gl.Types.ArrayBuffer.JSValue(), vertexBuffer.JSValue())
 	position := gl.Ctx().Call("getAttribLocation", shaderProgram.JSValue(), "position")
-	gl.Ctx().Call("vertexAttribPointer", position, 3, gl.Types.Float, false, 0, 0)
+	gl.Ctx().Call("vertexAttribPointer", position, 3, gl.Types.Float.JSValue(), false, 0, 0)
 	gl.Ctx().Call("enableVertexAttribArray", position)
 
-	gl.Ctx().Call("bindBuffer", gl.Types.ArrayBuffer, colorBuffer)
+	gl.Ctx().Call("bindBuffer", gl.Types.ArrayBuffer.JSValue(), colorBuffer.JSValue())
 	color := gl.Ctx().Call("getAttribLocation", shaderProgram.JSValue(), "color")
-	gl.Ctx().Call("vertexAttribPointer", color, 3, gl.Types.Float, false, 0, 0)
+	gl.Ctx().Call("vertexAttribPointer", color, 3, gl.Types.Float.JSValue(), false, 0, 0)
 	gl.Ctx().Call("enableVertexAttribArray", color)
 
 	gl.Ctx().Call("useProgram", shaderProgram.JSValue())
@@ -157,10 +157,10 @@ func main() {
 	gl.Ctx().Call("clearColor", 0.5, 0.5, 0.5, 0.9) // Color the screen is cleared to
 	gl.Ctx().Call("clearDepth", 1.0)                // Z value that is set to the Depth buffer every frame
 	gl.Ctx().Call("viewport", 0, 0, width, height)  // Viewport size
-	gl.Ctx().Call("depthFunc", gl.Types.Lequal)
+	gl.Ctx().Call("depthFunc", gl.Types.Lequal.JSValue())
 
 	// Bind to element array for draw function
-	gl.Ctx().Call("bindBuffer", gl.Types.ElementArrayBuffer, indexBuffer)
+	gl.Ctx().Call("bindBuffer", gl.Types.ElementArrayBuffer.JSValue(), indexBuffer.JSValue())
 
 	fpsStats := js.Global().Get("Stats").New()
 	fpsStats.Call("showPanel", 0)
@@ -235,15 +235,11 @@ func main() {
 
 		//	spew.Dump(projMatrix, viewMatrix)
 
-		typedProjMatrixBuffer := array.Must(array.CreateTypedArrayFromSlice(
-			float32SliceFromMat4(projMatrix),
-		))
-		typedViewMatrixBuffer := array.Must(array.CreateTypedArrayFromSlice(
-			float32SliceFromMat4(viewMatrix),
-		))
+		typedProjMatrixBuffer := array.NewTypedArrayFromSlice(float32SliceFromMat4(projMatrix))
+		typedViewMatrixBuffer := array.NewTypedArrayFromSlice(float32SliceFromMat4(viewMatrix))
 
-		gl.Ctx().Call("uniformMatrix4fv", shaderProgram.Uniforms["Pmatrix"].Location(), false, typedProjMatrixBuffer)
-		gl.Ctx().Call("uniformMatrix4fv", shaderProgram.Uniforms["Vmatrix"].Location(), false, typedViewMatrixBuffer)
+		gl.Ctx().Call("uniformMatrix4fv", shaderProgram.Uniforms["Pmatrix"].Location(), false, typedProjMatrixBuffer.JSValue())
+		gl.Ctx().Call("uniformMatrix4fv", shaderProgram.Uniforms["Vmatrix"].Location(), false, typedViewMatrixBuffer.JSValue())
 
 		// // Do new model matrix calculations
 		movMatrix = mgl32.HomogRotate3DX(0.5 * rotation)
@@ -251,20 +247,18 @@ func main() {
 		movMatrix = movMatrix.Mul4(mgl32.HomogRotate3DZ(0.2 * rotation))
 
 		// Convert model matrix to a JS TypedArray
-		typedModelMatrixBuffer := array.Must(array.CreateTypedArrayFromSlice(
-			float32SliceFromMat4(movMatrix),
-		))
+		typedModelMatrixBuffer := array.NewTypedArrayFromSlice(float32SliceFromMat4(movMatrix))
 
 		// Apply the model matrix
-		gl.Ctx().Call("uniformMatrix4fv", shaderProgram.Uniforms["Mmatrix"].Location(), false, typedModelMatrixBuffer)
+		gl.Ctx().Call("uniformMatrix4fv", shaderProgram.Uniforms["Mmatrix"].Location(), false, typedModelMatrixBuffer.JSValue())
 
 		// Clear the screen
-		gl.Ctx().Call("enable", gl.Types.DepthTest)
-		gl.Ctx().Call("clear", gl.Types.ColorBufferBit)
-		gl.Ctx().Call("clear", gl.Types.DepthBufferBit)
+		gl.Ctx().Call("enable", gl.Types.DepthTest.JSValue())
+		gl.Ctx().Call("clear", gl.Types.ColorBufferBit.JSValue())
+		gl.Ctx().Call("clear", gl.Types.DepthBufferBit.JSValue())
 
 		// Draw the cube
-		gl.Ctx().Call("drawElements", gl.Types.Triangles, len(indicesNative), gl.Types.UnsignedShort, 0)
+		gl.Ctx().Call("drawElements", gl.Types.Triangles.JSValue(), len(indicesNative), gl.Types.UnsignedShort.JSValue(), 0)
 
 		fpsStats.Call("end")
 		// Call next frame

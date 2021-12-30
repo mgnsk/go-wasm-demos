@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package webgl
@@ -48,20 +49,9 @@ func CreateAttrib(gl *GL, name string, arr array.TypedArray, numComponents int, 
 type Attribs map[string]*Attrib
 
 func CreateAttribs(gl *GL, data ObjectData) (map[string]*Attrib, error) {
-	positionsArray, err := array.CreateTypedArrayFromSlice(data.Positions)
-	if err != nil {
-		return nil, err
-	}
-
-	normalsArray, err := array.CreateTypedArrayFromSlice(data.Normals)
-	if err != nil {
-		return nil, err
-	}
-
-	texcoordsArray, err := array.CreateTypedArrayFromSlice(data.TexCoords)
-	if err != nil {
-		return nil, err
-	}
+	positionsArray := array.NewTypedArrayFromSlice(data.Positions)
+	normalsArray := array.NewTypedArrayFromSlice(data.Normals)
+	texcoordsArray := array.NewTypedArrayFromSlice(data.TexCoords)
 
 	positionAttrib, err := CreateAttrib(
 		gl,

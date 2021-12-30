@@ -3,6 +3,7 @@ package wrpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -60,16 +61,19 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 		return 0, err
 	}
 
-	return NewMessageReader(msg).Read(b)
+	arr := msg.Get("arr")
+	if arr.IsUndefined() {
+		return 0, fmt.Errorf("expected an ArrayBuffer message")
+	}
+
+	copy(b, array.ArrayBuffer(arr).Bytes())
+
+	return len(b), nil
 }
 
 // Write a byte array message into the conn.
 func (c *Conn) Write(b []byte) (n int, err error) {
-	arr, err := array.CreateBufferFromSlice(b)
-	if err != nil {
-		return 0, err
-	}
-
+	arr := array.NewArrayBufferFromSlice(b)
 	messages := map[string]interface{}{"arr": arr}
 	transferables := []interface{}{arr}
 

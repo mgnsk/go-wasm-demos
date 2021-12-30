@@ -7,10 +7,41 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net/http"
+	"time"
 
+	"github.com/bspaans/bleep/audio"
+	"github.com/bspaans/bleep/generators"
 	goaudio "github.com/go-audio/audio"
 	"github.com/go-audio/wav"
 )
+
+// GenerateChunks generates sine wave chunks.
+func GenerateChunks(totalDur time.Duration, chunkSamples int) chan Chunk {
+	chunks := make(chan Chunk)
+	go func() {
+		defer close(chunks)
+		index, streamStart := uint64(0), uint64(0)
+
+		g := generators.NewSineWaveOscillator()
+		chunkDur := time.Duration((float64(chunkSamples) * float64(time.Second)) / (2 * 44100))
+		for i := time.Duration(0); i < totalDur; i += chunkDur {
+			samples := g.GetSamples(audio.NewAudioConfig(), chunkSamples)
+			f32Samples := make([]float32, len(samples))
+			for i, v := range samples {
+				f32Samples[i] = float32(v)
+			}
+
+			chunks <- Chunk{
+				Index:       index,
+				StreamStart: streamStart,
+				Samples:     f32Samples,
+			}
+			index++
+		}
+	}()
+
+	return chunks
+}
 
 // GetWavChunks fetches a wav file and returns a channel to PCM chunks.
 func GetWavChunks(wavURL string, chunkSamples int) chan Chunk {

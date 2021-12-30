@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package webgl
@@ -23,10 +24,10 @@ func (b *Buffer) JSValue() js.Value {
 // Default drawType should be gl.Types.StaticDraw
 func CreateBuffer(gl *GL, arr array.TypedArray, bufType, drawType GLType) (*Buffer, error) {
 	// TODO check errors
-	buffer := gl.Ctx().Call("createBuffer", bufType)
-	gl.Ctx().Call("bindBuffer", bufType, buffer)
-	gl.Ctx().Call("bufferData", bufType, arr, drawType)
-	gl.Ctx().Call("bindBuffer", bufType, nil)
+	buffer := gl.Ctx().Call("createBuffer", bufType.JSValue())
+	gl.Ctx().Call("bindBuffer", bufType.JSValue(), buffer)
+	gl.Ctx().Call("bufferData", bufType.JSValue(), arr.JSValue(), drawType.JSValue())
+	gl.Ctx().Call("bindBuffer", bufType.JSValue(), nil)
 
 	return &Buffer{
 		buffer:   buffer,
@@ -46,10 +47,7 @@ type BufferInfo struct {
 //func CreateBufferInfoFromData(gl *GL,
 
 func CreateBufferInfo(gl *GL, data ObjectData) (*BufferInfo, error) {
-	indicesArray, err := array.CreateTypedArrayFromSlice(data.Indices)
-	if err != nil {
-		return nil, err
-	}
+	indicesArray := array.NewTypedArrayFromSlice(data.Indices)
 
 	indicesBuffer, err := CreateBuffer(
 		gl,

@@ -1,9 +1,18 @@
+---
 tasks:
   clean:
     usage: Clean application generated files and directories.
     run:
       - command: rm -rf public
-      - command: cp ${GOROOT}/misc/wasm/wasm_exec.js ./
+
+  setup:
+    usage: Install dev dependencies.
+    run:
+      - command: |
+          cd $(mktemp -d)
+          go mod init tools
+          go get github.com/mgnsk/templatetool
+          go install github.com/mgnsk/templatetool
 
   generate:
     usage: Generate javascript files.
@@ -17,13 +26,11 @@ tasks:
           GOOS: js
           GOARCH: wasm
       - command: |
-          # TODO currently links to all apps
-          wavURL="http://localhost:8080/test2.wav"
           for app in ${PWD}/cmdwasm/*/
           do
               app=$(basename $app)
-              echo "building $app"
-              go build -ldflags "-X main.wavURL=$wavURL" -o ${PWD}/public/$app/$app.wasm ${PWD}/cmdwasm/$app/main.go
+              echo "Building $app..."
+              go build -ldflags '-s -w' -o ${PWD}/public/$app/$app.wasm ${PWD}/cmdwasm/$app/main.go
           done
 
   serve:
@@ -46,4 +53,4 @@ tasks:
       - command: go mod download
       - command: go mod vendor
       - command: sed -i 's/build windows/build windows js/g' ./vendor/github.com/onsi/ginkgo/internal/remote/output_interceptor_win.go
-      - command: go test -mod=vendor -v -count=1 -exec="${GOROOT}/misc/wasm/go_js_wasm_exec" ${pkg}
+      - command: go test -mod=vendor -v -count=1 -exec="env --ignore-environment ${GOROOT}/misc/wasm/go_js_wasm_exec" ${pkg}

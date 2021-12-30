@@ -46,5 +46,4 @@ done
 echo "# Copying static data..."
 
 # Copy static data.
-cp $root/test2.wav $root/public/test2.wav
 cp $root/third_party/js/stats.min.js $root/public/stats.min.js
