@@ -8,7 +8,6 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
-	"sync"
 	"time"
 
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
@@ -28,12 +27,7 @@ func main() {
 }
 
 func browser() {
-	wg := &sync.WaitGroup{}
 	defer jsutil.ConsoleLog("Exiting main program")
-	defer wg.Wait()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// Create workers.
 	numWorkers := 4
@@ -41,7 +35,7 @@ func browser() {
 	runner := wrpc.NewWorkerRunner()
 
 	for i := 0; i < numWorkers; i++ {
-		w, err := runner.Spawn(ctx, benchmark.IndexJS)
+		w, err := runner.SpawnWithTimeout(benchmark.IndexJS, 3*time.Second)
 		if err != nil {
 			panic(err)
 		}

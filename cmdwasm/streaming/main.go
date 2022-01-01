@@ -42,19 +42,19 @@ func stringGeneratorWorker(w io.WriteCloser, r io.Reader) {
 		panic(err)
 	}
 
+	fmt.Printf("Will generate %d strings\n", n)
+
 	bufOut := bufio.NewWriter(w)
 	defer bufOut.Flush()
 
 	for i := 0; i < int(n); i++ {
-		str := "Test data test data " + fmt.Sprintf("%f", rand.Float64()) + "\n"
+		str := "Data " + fmt.Sprintf("%f", rand.Float64()) + "\n"
 		if n, err := bufOut.WriteString(str); err != nil {
 			panic(err)
 		} else if n == 0 {
 			panic("bufOut: 0 write")
 		}
-		bufOut.Flush()
 		fmt.Printf("Generated %s\n", str)
-		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -74,7 +74,6 @@ func upperCaseWorker(w io.WriteCloser, r io.Reader) {
 		} else if n == 0 {
 			panic("bufOut 0 write")
 		}
-		bufOut.Flush()
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -106,7 +105,6 @@ func reverseWorker(w io.WriteCloser, r io.Reader) {
 		} else if n == 0 {
 			panic("bufOut 0 write")
 		}
-		bufOut.Flush()
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -122,13 +120,10 @@ func browser() {
 	runner := wrpc.NewWorkerRunner()
 
 	for i := 0; i < numWorkers; i++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		w, err := runner.Spawn(ctx, streaming.IndexJS)
+		w, err := runner.SpawnWithTimeout(streaming.IndexJS, 3*time.Second)
 		if err != nil {
 			panic(err)
 		}
-		cancel()
-
 		workers = append(workers, w)
 	}
 
@@ -152,12 +147,9 @@ func browser() {
 	// Schedule 3 workers to start streaming
 	wrpc.Go(outputWriter, b, stringGeneratorWorker, upperCaseWorker, reverseWorker)
 
-	time.Sleep(time.Second)
-
 	scanner := bufio.NewScanner(outputReader)
 	for scanner.Scan() {
-		data := scanner.Text()
-		jsutil.ConsoleLog("Main thread received:", data)
+		jsutil.ConsoleLog("Main thread received:", scanner.Text())
 	}
 
 	if err := scanner.Err(); err != nil {

@@ -6,6 +6,7 @@ package wrpc
 import (
 	"context"
 	"io"
+	"time"
 )
 
 // RemoteCall is a function which must be statically declared
@@ -47,34 +48,34 @@ func goOne(w io.WriteCloser, r io.Reader, f RemoteCall) {
 
 	var remoteReader, inputWriter, outputReader, remoteWriter *Conn
 
-	if p, ok := r.(*Conn); ok {
-		// Pass Port directly.
-		remoteReader = p
+	if c, ok := r.(*Conn); ok {
+		remoteReader = c
 	} else if r != nil {
 		remoteReader, inputWriter = ConnPipe()
+	}
+
+	if c, ok := w.(*Conn); ok {
+		remoteWriter = c
+	} else {
+		outputReader, remoteWriter = ConnPipe()
+	}
+
+	call := NewCall(remoteWriter, remoteReader, f)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	if err := defaultScheduler.Call(ctx, call); err != nil {
+		panic(err)
+	}
+
+	if inputWriter != nil {
 		go mustCopy(inputWriter, r)
 	}
 
-	if p, ok := w.(*Conn); ok {
-		// Pass Port directly.
-		remoteWriter = p
-	} else {
-		outputReader, remoteWriter = ConnPipe()
+	if outputReader != nil {
 		go mustCopy(w, outputReader)
 	}
-
-	call := Call{
-		rc:     f,
-		reader: remoteReader,
-		writer: remoteWriter,
-	}
-
-	go func() {
-		// Schedule the call to first receiving worker.
-		if err := defaultScheduler.Call(context.TODO(), call); err != nil {
-			panic(err)
-		}
-	}()
 }
 
 func mustCopy(dst io.WriteCloser, src io.Reader) {

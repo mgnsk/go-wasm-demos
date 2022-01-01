@@ -20,7 +20,7 @@ var _ = Describe("TypedArray", func() {
 			func(data interface{}) {
 				arr := array.NewTypedArrayFromSlice(data)
 
-				b := arr.Buffer().Bytes()
+				b := arr.ArrayBuffer().Bytes()
 				Expect(b).NotTo(BeEmpty())
 
 				if dataBytes, ok := data.([]byte); ok {

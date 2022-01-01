@@ -18,9 +18,7 @@ type Worker struct {
 	Port   ReadWriter
 }
 
-// StartRemoteScheduler sends target port to worker and
-// starts a scheduler remotely so that worker schedules
-// wrpc calls to target.
+// StartRemoteScheduler sends target port to worker and instructs it to schedule to that port.
 func (w *Worker) StartRemoteScheduler(ctx context.Context, target js.Value) error {
 	if err := w.Port.Write(
 		ctx,
@@ -30,11 +28,10 @@ func (w *Worker) StartRemoteScheduler(ctx context.Context, target js.Value) erro
 		},
 		[]interface{}{target},
 	); err != nil {
-		return err
+		return fmt.Errorf("error sending scheduler port to remote: %w", err)
 	}
-	// Note: we cannot read from target, the ownership has been moved.
 	if _, err := w.Port.Read(ctx); err != nil {
-		return err
+		return fmt.Errorf("error waiting for remote scheduler ACK: %w", err)
 	}
 	return nil
 }
@@ -83,20 +80,16 @@ func (r *WorkerRunner) Spawn(ctx context.Context, indexJS string) (*Worker, erro
 	for _, w := range r.workers {
 		port1, port2 := Pipe()
 		if err := newWorker.StartRemoteScheduler(ctx, port1.JSValue()); err != nil {
-			return nil, fmt.Errorf("error starting remote scheduler: %w", err)
+			return nil, err
 		}
 		if err := w.StartRemoteScheduler(ctx, port2.JSValue()); err != nil {
-			return nil, fmt.Errorf("error starting remote scheduler: %w", err)
+			return nil, err
 		}
 	}
 
 	r.workers = append(r.workers, newWorker)
 
-	go func() {
-		if err := r.sched.Run(context.TODO(), newWorker.Port); err != nil {
-			panic(err)
-		}
-	}()
+	r.sched.Register(newWorker.Port)
 
 	return newWorker, nil
 }

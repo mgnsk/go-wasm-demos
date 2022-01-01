@@ -6,7 +6,7 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
+	"encoding/gob"
 	"io"
 	"net/textproto"
 	"sync"
@@ -47,7 +47,7 @@ func browser() {
 }
 
 func forEachChunk(reader *textproto.Reader, cb func(audio.Chunk)) {
-	d := json.NewDecoder(reader.DotReader())
+	d := gob.NewDecoder(reader.DotReader())
 	for {
 		var chunk audio.Chunk
 		if err := d.Decode(&chunk); err != nil {
@@ -61,7 +61,7 @@ func mustWriteChunk(writer *textproto.Writer, chunk audio.Chunk) {
 	dw := writer.DotWriter()
 	defer dw.Close()
 
-	e := json.NewEncoder(dw)
+	e := gob.NewEncoder(dw)
 	if err := e.Encode(chunk); err != nil {
 		panic(err)
 	}
@@ -81,7 +81,7 @@ func startAudio(ctx context.Context) {
 
 	for i := 0; i < 4; i++ {
 		// TODO the worker never gets killed.
-		runner.Spawn(context.TODO(), audiotrack.IndexJS)
+		runner.SpawnWithTimeout(audiotrack.IndexJS, 3*time.Second)
 	}
 
 	jsutil.ConsoleLog("Workers spawned...")
@@ -165,6 +165,6 @@ func startAudio(ctx context.Context) {
 		arrLeft := array.NewArrayBufferFromSlice(left)
 		arrRight := array.NewArrayBufferFromSlice(right)
 
-		player.Call("playNext", arrLeft.Float32Array(), arrRight.Float32Array())
+		player.Call("playNext", arrLeft.Float32Array().JSValue(), arrRight.Float32Array().JSValue())
 	})
 }

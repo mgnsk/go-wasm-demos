@@ -91,7 +91,7 @@ func SliceToByteSlice(s interface{}) (b []byte) {
 		h.Len *= 8
 		h.Cap *= 8
 	default:
-		panic(fmt.Sprintf("util: unexpected value: %T", s))
+		panic(fmt.Sprintf("SliceToByteSlice: unexpected value: %T", s))
 	}
 	b = *(*[]byte)(unsafe.Pointer(h))
 	runtime.KeepAlive(s)

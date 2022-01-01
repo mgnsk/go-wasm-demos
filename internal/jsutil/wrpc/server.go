@@ -5,8 +5,10 @@ package wrpc
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"syscall/js"
+	"time"
 
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
@@ -15,6 +17,10 @@ import (
 type Server struct {
 	callCount uint64
 	sched     *Scheduler
+}
+
+func ack(ctx context.Context, port Writer) error {
+	return port.Write(ctx, map[string]interface{}{"ack": true}, nil)
 }
 
 // HandleMessages handles messages from port.
@@ -28,44 +34,38 @@ func (s *Server) HandleMessages(ctx context.Context, port ReadWriter) {
 		switch {
 		case !data.Get("start_scheduler").IsUndefined():
 			target := NewMessagePort(data.Get("port"))
-			// Announce that we have set up listeners for target port.
-			if err := port.Write(ctx, map[string]interface{}{}, nil); err != nil {
+			if err := ack(ctx, port); err != nil {
 				panic(err)
 			}
+			s.sched.Register(target)
 			go s.HandleMessages(ctx, target)
-			go func() {
-				if err := s.sched.Run(ctx, target); err != nil {
-					panic(err)
-				}
-			}()
-
 		case !data.Get("rc").IsUndefined():
-			call := NewCallFromJS(
-				data.Get("rc"),
-				data.Get("input"),
-				data.Get("output"),
-			)
+			call := NewCallFromJS(data)
+			if err := ack(ctx, port); err != nil {
+				panic(err)
+			}
 
-			// Currently allow 1 concurrent call per worker.
-			// TODO configure this on runtime.
-			// It can happen if multiple ports are scheduling into this one.
-			if atomic.LoadUint64(&s.callCount)+1 > 1 {
-				jsutil.ConsoleLog("Rescheduling...")
-				// Reschedule until we have a free worker.
-				go func() {
-					if err := s.sched.Call(context.TODO(), call); err != nil {
-						panic(err)
+			go func() {
+				// Currently allow 1 concurrent call per worker.
+				// TODO configure this on runtime.
+				// It can happen if multiple ports are scheduling into this one.
+				if atomic.AddUint64(&s.callCount, 1) > 1 {
+					jsutil.ConsoleLog("Rescheduling...")
+					// Reschedule until we have a free worker.
+					ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+					defer cancel()
+
+					if err := s.sched.Call(ctx, call); err != nil {
+						panic(fmt.Errorf("error rescheduling: %w", err))
 					}
-				}()
-			} else {
-				atomic.AddUint64(&s.callCount, 1)
-				go func() {
+				} else {
 					defer atomic.AddUint64(&s.callCount, ^uint64(0))
 					call.Execute()
-				}()
-			}
+				}
+			}()
+		case !data.Get("ack").IsUndefined():
 		default:
-			panic("invalid message type")
+			panic("Server: invalid message")
 		}
 	}
 }
@@ -83,7 +83,7 @@ func (s *Server) Run(ctx context.Context) {
 
 	go s.HandleMessages(ctx, port)
 
-	jsutil.ConsoleLog("Worker started")
+	jsutil.ConsoleLog("Server started")
 
 	<-ctx.Done()
 	panic(ctx.Err())

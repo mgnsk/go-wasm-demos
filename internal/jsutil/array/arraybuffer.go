@@ -127,6 +127,8 @@ func (a ArrayBuffer) Len() int {
 // Bytes returns the ArrayBuffer bytes.
 func (a ArrayBuffer) Bytes() []byte {
 	buf := make([]byte, a.Len())
-	js.CopyBytesToGo(buf, a.Uint8Array().JSValue())
+	if n := js.CopyBytesToGo(buf, a.Uint8Array().JSValue()); n != len(buf) {
+		panic("CopyBytesToGo: invalid copied length")
+	}
 	return buf
 }

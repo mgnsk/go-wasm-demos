@@ -73,7 +73,7 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 
 // Write a byte array message into the conn.
 func (c *Conn) Write(b []byte) (n int, err error) {
-	arr := array.NewArrayBufferFromSlice(b)
+	arr := array.NewArrayBufferFromSlice(b).JSValue()
 	messages := map[string]interface{}{"arr": arr}
 	transferables := []interface{}{arr}
 
@@ -113,7 +113,8 @@ func (c *Conn) Close() error {
 	if c.writeCancel != nil {
 		c.writeCancel()
 	}
-	return c.port.Close()
+	c.port.Close()
+	return nil
 }
 
 // SetDeadline sets the deadline for all future operations.

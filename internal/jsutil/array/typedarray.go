@@ -46,7 +46,7 @@ func (a TypedArray) JSValue() js.Value {
 }
 
 // ArrayBuffer returns the underlying ArrayBuffer.
-func (a TypedArray) Buffer() ArrayBuffer {
+func (a TypedArray) ArrayBuffer() ArrayBuffer {
 	return ArrayBuffer(a.JSValue().Get("buffer"))
 }
 

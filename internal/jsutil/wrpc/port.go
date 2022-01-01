@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"runtime"
+	"sync"
 	"syscall/js"
 )
 
@@ -29,19 +30,14 @@ type ReadWriteCloser interface {
 	io.Closer
 }
 
-// WriteCloser is a port writer and closer interface.
-type WriteCloser interface {
-	Writer
-	io.Closer
-}
-
 // MessagePort is a synchronous JS MessagePort wrapper.
 type MessagePort struct {
 	value    js.Value
 	messages chan js.Value
-	errs     chan error
 	ack      chan struct{}
 	done     chan struct{}
+	once     sync.Once
+	err      error
 }
 
 // Pipe returns a synchronous duplex MessagePort pipe.
@@ -57,7 +53,6 @@ func NewMessagePort(value js.Value) *MessagePort {
 	p := &MessagePort{
 		value:    value,
 		messages: make(chan js.Value),
-		errs:     make(chan error),
 		ack:      make(chan struct{}),
 		done:     make(chan struct{}),
 	}
@@ -90,9 +85,7 @@ func (p *MessagePort) Read(ctx context.Context) (js.Value, error) {
 	case <-ctx.Done():
 		return js.Value{}, ctx.Err()
 	case <-p.done:
-		return js.Value{}, io.ErrClosedPipe
-	case err := <-p.errs:
-		return js.Value{}, err
+		return js.Value{}, p.err
 	case msg := <-p.messages:
 		return msg, nil
 	}
@@ -105,33 +98,28 @@ func (p *MessagePort) Write(ctx context.Context, messages map[string]interface{}
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-p.done:
-		return io.ErrClosedPipe
-	case err := <-p.errs:
-		return err
+		return p.err
 	case <-p.ack:
 		return nil
 	}
 }
 
-// Close the port.
-func (p *MessagePort) Close() error {
-	select {
-	case <-p.done:
-		return io.ErrClosedPipe
-	default:
-	}
-	close(p.done)
-	p.value.Call("postMessage", map[string]interface{}{"__eof": true})
-	p.value.Call("close")
-	return nil
+// Close the port. All pending reads and writes are unblocked and return io.ErrClosedPipe.
+func (p *MessagePort) Close() {
+	p.once.Do(func() {
+		p.err = io.ErrClosedPipe
+		close(p.done)
+		p.value.Call("postMessage", map[string]interface{}{"__eof": true})
+		p.value.Call("close")
+	})
 }
 
 func (p *MessagePort) onError(_ js.Value, args []js.Value) interface{} {
 	go func() {
-		select {
-		case <-p.done:
-		case p.errs <- js.Error{Value: args[0]}:
-		}
+		p.once.Do(func() {
+			p.err = js.Error{Value: args[0]}
+			close(p.done)
+		})
 	}()
 	return nil
 }
@@ -140,15 +128,15 @@ func (p *MessagePort) onMessage(_ js.Value, args []js.Value) interface{} {
 	go func() {
 		data := args[0].Get("data")
 		switch {
+		case !data.Get("__eof").IsUndefined():
+			p.once.Do(func() {
+				p.err = io.EOF
+				close(p.done)
+			})
 		case !data.Get("__ack").IsUndefined():
 			select {
 			case <-p.done:
 			case p.ack <- struct{}{}:
-			}
-		case !data.Get("__eof").IsUndefined():
-			select {
-			case <-p.done:
-			case p.errs <- io.EOF:
 			}
 		default:
 			defer p.value.Call("postMessage", map[string]interface{}{"__ack": true})
