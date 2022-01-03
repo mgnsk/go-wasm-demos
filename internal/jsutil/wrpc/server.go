@@ -28,7 +28,7 @@ func ListenAndServe(ctx context.Context) error {
 			return fmt.Errorf("server: error reading from port: %w", err)
 		}
 		switch {
-		case !data.Get("rc").IsUndefined():
+		case !data.Get("call").IsUndefined():
 			call := NewCallFromJS(data)
 			if err := port.Write(ctx, map[string]interface{}{"received": true}, nil); err != nil {
 				panic(err)
@@ -36,6 +36,7 @@ func ListenAndServe(ctx context.Context) error {
 			go call.ExecuteLocal()
 		case !data.Get("ack").IsUndefined():
 		default:
+			jsutil.ConsoleLog(data)
 			panic("Server: invalid message")
 		}
 	}

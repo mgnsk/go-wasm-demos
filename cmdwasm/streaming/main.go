@@ -12,7 +12,6 @@ import (
 	"io"
 	"math/rand"
 	"strings"
-	"time"
 
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
@@ -22,6 +21,9 @@ func main() {
 	ctx := context.TODO()
 
 	if jsutil.IsWorker() {
+		wrpc.Handle("stringGeneratorWorker", stringGeneratorWorker)
+		wrpc.Handle("upperCaseWorker", upperCaseWorker)
+		wrpc.Handle("reverseWorker", reverseWorker)
 		if err := wrpc.ListenAndServe(ctx); err != nil {
 			panic(err)
 		}
@@ -115,20 +117,6 @@ func reverseWorker(w io.WriteCloser, r io.Reader) {
 func browser() {
 	defer jsutil.ConsoleLog("Exiting main program")
 
-	numWorkers := 3
-	var workers []*wrpc.Worker
-	for i := 0; i < numWorkers; i++ {
-		w, err := wrpc.NewWorkerWithTimeout("index.js", 3*time.Second)
-		if err != nil {
-			panic(err)
-		}
-		workers = append(workers, w)
-	}
-
-	jsutil.Dump("Workers spawned...")
-
-	jsutil.ConsoleLog("Executing streaming chain call")
-
 	// Specify the count of strings to be generated.
 	b := &bytes.Buffer{}
 	enc := gob.NewEncoder(b)
@@ -143,7 +131,7 @@ func browser() {
 	outputReader, outputWriter := io.Pipe()
 
 	// Schedule 3 workers to start streaming
-	wrpc.Go(outputWriter, b, stringGeneratorWorker, upperCaseWorker, reverseWorker)
+	wrpc.Go(outputWriter, b, "stringGeneratorWorker", "upperCaseWorker", "reverseWorker")
 
 	scanner := bufio.NewScanner(outputReader)
 	for scanner.Scan() {
@@ -153,12 +141,4 @@ func browser() {
 	if err := scanner.Err(); err != nil {
 		panic(err)
 	}
-
-	jsutil.Dump("stream ended")
-
-	for _, w := range workers {
-		w.Terminate()
-	}
-	// Wait for javascript to work
-	time.Sleep(3 * time.Second)
 }

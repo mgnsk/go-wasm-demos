@@ -107,12 +107,16 @@ func (p *MessagePort) Write(ctx context.Context, messages map[string]interface{}
 }
 
 // Close the port. All pending reads and writes are unblocked and return io.ErrClosedPipe.
-func (p *MessagePort) Close() {
+func (p *MessagePort) Close() error {
 	p.once.Do(func() {
 		p.err = io.ErrClosedPipe
 		close(p.done)
 		p.value.Call("postMessage", map[string]interface{}{"__eof": true})
 	})
+	if p.err == io.ErrClosedPipe {
+		return p.err
+	}
+	return nil
 }
 
 func (p *MessagePort) onError(_ js.Value, args []js.Value) interface{} {

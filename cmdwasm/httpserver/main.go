@@ -21,6 +21,23 @@ func main() {
 	ctx := context.TODO()
 
 	if jsutil.IsWorker() {
+		wrpc.Handle("serve", func(w io.WriteCloser, r io.Reader) {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/hello", func(w http.ResponseWriter, _ *http.Request) {
+				fmt.Fprintf(w, "Hello world from server!")
+			})
+
+			s := &http.Server{
+				Handler:        mux,
+				ReadTimeout:    10 * time.Second,
+				WriteTimeout:   10 * time.Second,
+				MaxHeaderBytes: 1 << 20,
+			}
+
+			if err := s.Serve(newListener(w, r)); err != nil {
+				fmt.Println(err)
+			}
+		})
 		if err := wrpc.ListenAndServe(ctx); err != nil {
 			panic(err)
 		}
@@ -37,7 +54,7 @@ func browser() {
 		Transport: &http.Transport{
 			Dial: func(_, _ string) (net.Conn, error) {
 				localConn, remoteConn := net.Pipe()
-				wrpc.Go(remoteConn, remoteConn, serve)
+				wrpc.Go(remoteConn, remoteConn, "serve")
 				return localConn, nil
 			},
 		},
@@ -55,26 +72,6 @@ func browser() {
 	}
 
 	fmt.Println(string(body))
-}
-
-func serve(w io.WriteCloser, r io.Reader) {
-	defer w.Close()
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/hello", func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, "Hello world from server!")
-	})
-
-	s := &http.Server{
-		Handler:        mux,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-
-	if err := s.Serve(newListener(w, r)); err != nil {
-		fmt.Println(err)
-	}
 }
 
 type workerListener struct {

@@ -4,9 +4,9 @@
 package wrpc
 
 import (
+	"fmt"
 	"io"
 	"syscall/js"
-	"unsafe"
 )
 
 // Call is a remote call that can be scheduled to a worker.
@@ -20,28 +20,28 @@ type Call struct {
 	remoteWriter *Conn
 	remoteReader *Conn
 
-	rc int
+	call string
 }
 
 // NewCall creates a new wrpc call.
-func NewCall(w io.WriteCloser, r io.Reader, f RemoteCall) Call {
+func NewCall(w io.WriteCloser, r io.Reader, name string) Call {
 	c := Call{
-		w:  w,
-		r:  r,
-		rc: int(*(*uintptr)(unsafe.Pointer(&f))),
+		w:    w,
+		r:    r,
+		call: name,
 	}
 
 	if conn, ok := w.(*Conn); ok {
 		c.remoteWriter = conn
 	} else {
-		c.remoteWriter, c.localReader = ConnPipe()
+		c.remoteWriter, c.localReader = connPipe()
 	}
 
 	if r != nil {
 		if conn, ok := r.(*Conn); ok {
 			c.remoteReader = conn
 		} else {
-			c.remoteReader, c.localWriter = ConnPipe()
+			c.remoteReader, c.localWriter = connPipe()
 		}
 	}
 
@@ -50,29 +50,27 @@ func NewCall(w io.WriteCloser, r io.Reader, f RemoteCall) Call {
 
 // NewCallFromJS constructs a call from JS message.
 func NewCallFromJS(data js.Value) Call {
-	writer := data.Get("output")
-	reader := data.Get("input")
-	rc := data.Get("rc").Int()
-
-	w := NewConn(NewMessagePort(writer))
+	w := NewConn(NewMessagePort(data.Get("writer")))
 
 	var r *Conn
-	if !reader.IsUndefined() {
+	if reader := data.Get("reader"); !reader.IsUndefined() {
 		r = NewConn(NewMessagePort(reader))
 	}
 
 	return Call{
 		remoteWriter: w,
 		remoteReader: r,
-		rc:           rc,
+		call:         data.Get("call").String(),
 	}
 }
 
 // ExecuteLocal executes the call locally.
 func (c Call) ExecuteLocal() {
-	rcPtr := uintptr(c.rc)
-	f := *(*RemoteCall)(unsafe.Pointer(&rcPtr))
-	f(c.remoteWriter, c.remoteReader)
+	call, ok := calls[c.call]
+	if !ok {
+		panic(fmt.Errorf("call '%s' not found", c.call))
+	}
+	call(c.remoteWriter, c.remoteReader)
 }
 
 // ExecuteRemote executes the remote call.
@@ -88,13 +86,16 @@ func (c Call) ExecuteRemote() {
 // JSMessage returns the JS message payload.
 func (c Call) JSMessage() (map[string]interface{}, []interface{}) {
 	messages := map[string]interface{}{
-		"rc":     c.rc,
-		"output": c.remoteWriter.JSValue(),
+		"call":   c.call,
+		"writer": c.remoteWriter.JSValue(),
 	}
 	transferables := []interface{}{c.remoteWriter.JSValue()}
 	if c.remoteReader != nil {
-		messages["input"] = c.remoteReader.JSValue()
-		transferables = append(transferables, c.remoteReader.JSValue())
+		messages["reader"] = c.remoteReader.JSValue()
+		if rr := c.remoteReader; rr != c.remoteWriter {
+			// Don't sent duplicate conn.
+			transferables = append(transferables, rr.JSValue())
+		}
 	}
 	return messages, transferables
 }
