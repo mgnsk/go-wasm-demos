@@ -10,72 +10,55 @@ import (
 )
 
 // RemoteCall is a function which must be statically declared
-// so that it's pointer could be sent to another machine to run.
+// so that it's pointer could be sent to another worker to run,
+// under the assumption that all workers run the same binary.
 //
 // Arguments:
 // input is a reader which is piped into the worker's input.
-// outputPort is call's output that must be closed when
-// not being written into anymore.
+// outputPort is call's output that must be closed when EOF.
 // All writes to out block until a corresponding read from its other side.
 type RemoteCall func(io.WriteCloser, io.Reader)
 
-// Go provides a familiar interface for wRPC calls.
-//
-// Here are some rules:
-// 1) f runs in a new goroutine on the first worker that receives it.
-// 2) f can call Go with a new RemoteCall.
-// Workers can then act like a mesh where any chain of stream is concurrently active
-//
-// If multiple RemoteCalls are provided, each call is run in a different worker by piping output
-// from one worker to the next worker and letting the last worker write directly to w.
+// Go starts remote workers for each remote call and executes them in order by piping each
+// call's output to the next input and letting the last worker write directly to w.
 func Go(w io.WriteCloser, r io.Reader, calls ...RemoteCall) {
+	// start copiers only when all calls are initiated
+	cs := make([]Call, len(calls))
 	prevReader := r
 	for i, f := range calls {
 		if i == len(calls)-1 {
-			goOne(w, prevReader, f)
+			cs[i] = goOne(w, prevReader, f)
 		} else {
 			rc, wc := ConnPipe()
-			goOne(wc, prevReader, f)
+			cs[i] = goOne(wc, prevReader, f)
 			prevReader = rc
 		}
 	}
+	for _, c := range cs {
+		c.ExecuteRemote()
+	}
 }
 
-func goOne(w io.WriteCloser, r io.Reader, f RemoteCall) {
+func goOne(w io.WriteCloser, r io.Reader, f RemoteCall) Call {
 	if w == nil {
 		panic("Must have output")
 	}
 
-	var remoteReader, inputWriter, outputReader, remoteWriter *Conn
+	call := NewCall(w, r, f)
 
-	if c, ok := r.(*Conn); ok {
-		remoteReader = c
-	} else if r != nil {
-		remoteReader, inputWriter = ConnPipe()
+	worker, err := NewWorkerWithTimeout("index.js", 3*time.Second)
+	if err != nil {
+		panic(err)
 	}
-
-	if c, ok := w.(*Conn); ok {
-		remoteWriter = c
-	} else {
-		outputReader, remoteWriter = ConnPipe()
-	}
-
-	call := NewCall(remoteWriter, remoteReader, f)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	if err := defaultScheduler.Call(ctx, call); err != nil {
+	if err := worker.Call(ctx, call); err != nil {
 		panic(err)
 	}
 
-	if inputWriter != nil {
-		go mustCopy(inputWriter, r)
-	}
-
-	if outputReader != nil {
-		go mustCopy(w, outputReader)
-	}
+	return call
 }
 
 func mustCopy(dst io.WriteCloser, src io.Reader) {

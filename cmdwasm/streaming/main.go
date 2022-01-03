@@ -16,15 +16,15 @@ import (
 
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
-	"github.com/mgnsk/go-wasm-demos/public/streaming"
 )
 
 func main() {
 	ctx := context.TODO()
 
-	if jsutil.IsWorker {
-		s := wrpc.NewServer()
-		s.Run(ctx)
+	if jsutil.IsWorker() {
+		if err := wrpc.ListenAndServe(ctx); err != nil {
+			panic(err)
+		}
 	} else {
 		browser()
 	}
@@ -117,10 +117,8 @@ func browser() {
 
 	numWorkers := 3
 	var workers []*wrpc.Worker
-	runner := wrpc.NewWorkerRunner()
-
 	for i := 0; i < numWorkers; i++ {
-		w, err := runner.SpawnWithTimeout(streaming.IndexJS, 3*time.Second)
+		w, err := wrpc.NewWorkerWithTimeout("index.js", 3*time.Second)
 		if err != nil {
 			panic(err)
 		}

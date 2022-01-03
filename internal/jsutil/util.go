@@ -14,13 +14,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-// IsWorker boolean
-var (
-	IsWorker bool
-)
-
-func init() {
-	IsWorker = js.Global().Get("WorkerGlobalScope").Type() != js.TypeUndefined
+// IsWorker returns whether we are running in a webworker.
+func IsWorker() bool {
+	return js.Global().Get("WorkerGlobalScope").Type() != js.TypeUndefined
 }
 
 // CreateURLObject creates an url object from javascript source.

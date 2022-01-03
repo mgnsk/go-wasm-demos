@@ -5,15 +5,6 @@ tasks:
     run:
       - command: rm -rf public
 
-  setup:
-    usage: Install dev dependencies.
-    run:
-      - command: |
-          cd $(mktemp -d)
-          go mod init tools
-          go get github.com/mgnsk/templatetool
-          go install github.com/mgnsk/templatetool
-
   generate:
     usage: Generate javascript files.
     run:
@@ -30,7 +21,7 @@ tasks:
           do
               app=$(basename $app)
               echo "Building $app..."
-              go build -ldflags '-s -w' -o ${PWD}/public/$app/$app.wasm ${PWD}/cmdwasm/$app/main.go
+              go build -ldflags '-s -w' -o ${PWD}/public/$app/main.wasm ${PWD}/cmdwasm/$app/main.go
           done
 
   serve:

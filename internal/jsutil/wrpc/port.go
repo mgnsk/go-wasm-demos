@@ -65,7 +65,8 @@ func NewMessagePort(value js.Value) *MessagePort {
 	value.Set("onmessageerror", onMessageError)
 	value.Set("onmessage", onMessage)
 
-	runtime.SetFinalizer(p, func(interface{}) {
+	runtime.SetFinalizer(p, func(port interface{}) {
+		port.(*MessagePort).value.Call("close")
 		onError.Release()
 		onMessageError.Release()
 		onMessage.Release()
@@ -87,6 +88,7 @@ func (p *MessagePort) Read(ctx context.Context) (js.Value, error) {
 	case <-p.done:
 		return js.Value{}, p.err
 	case msg := <-p.messages:
+		p.value.Call("postMessage", map[string]interface{}{"__ack": true})
 		return msg, nil
 	}
 }
@@ -110,7 +112,6 @@ func (p *MessagePort) Close() {
 		p.err = io.ErrClosedPipe
 		close(p.done)
 		p.value.Call("postMessage", map[string]interface{}{"__eof": true})
-		p.value.Call("close")
 	})
 }
 
@@ -139,7 +140,6 @@ func (p *MessagePort) onMessage(_ js.Value, args []js.Value) interface{} {
 			case p.ack <- struct{}{}:
 			}
 		default:
-			defer p.value.Call("postMessage", map[string]interface{}{"__ack": true})
 			select {
 			case <-p.done:
 			case p.messages <- data:

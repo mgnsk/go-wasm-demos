@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/gob"
+	"errors"
 	"io"
 	"net/textproto"
 	"sync"
@@ -17,15 +18,15 @@ import (
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
-	"github.com/mgnsk/go-wasm-demos/public/audiotrack"
 )
 
 func main() {
 	ctx := context.TODO()
 
-	if jsutil.IsWorker {
-		s := wrpc.NewServer()
-		s.Run(ctx)
+	if jsutil.IsWorker() {
+		if err := wrpc.ListenAndServe(ctx); err != nil {
+			panic(err)
+		}
 	} else {
 		browser()
 	}
@@ -51,6 +52,9 @@ func forEachChunk(reader *textproto.Reader, cb func(audio.Chunk)) {
 	for {
 		var chunk audio.Chunk
 		if err := d.Decode(&chunk); err != nil {
+			if errors.Is(err, io.EOF) {
+				return
+			}
 			panic(err)
 		}
 		cb(chunk)
@@ -77,11 +81,9 @@ const (
 func startAudio(ctx context.Context) {
 	// Create worker functions.
 
-	runner := wrpc.NewWorkerRunner()
-
 	for i := 0; i < 4; i++ {
 		// TODO the worker never gets killed.
-		runner.SpawnWithTimeout(audiotrack.IndexJS, 3*time.Second)
+		wrpc.NewWorkerWithTimeout("index.js", 3*time.Second)
 	}
 
 	jsutil.ConsoleLog("Workers spawned...")
