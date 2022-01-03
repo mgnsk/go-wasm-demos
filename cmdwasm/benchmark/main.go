@@ -5,7 +5,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,8 +15,6 @@ import (
 )
 
 func main() {
-	ctx := context.TODO()
-
 	if jsutil.IsWorker() {
 		wrpc.Handle("echoBytes", func(w io.WriteCloser, r io.Reader) {
 			defer w.Close()
@@ -25,7 +22,7 @@ func main() {
 				panic(err)
 			}
 		})
-		if err := wrpc.ListenAndServe(ctx); err != nil {
+		if err := wrpc.ListenAndServe(); err != nil {
 			panic(err)
 		}
 	} else {

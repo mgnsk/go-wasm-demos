@@ -4,7 +4,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,8 +17,6 @@ import (
 )
 
 func main() {
-	ctx := context.TODO()
-
 	if jsutil.IsWorker() {
 		wrpc.Handle("serve", func(w io.WriteCloser, r io.Reader) {
 			mux := http.NewServeMux()
@@ -38,7 +35,7 @@ func main() {
 				fmt.Println(err)
 			}
 		})
-		if err := wrpc.ListenAndServe(ctx); err != nil {
+		if err := wrpc.ListenAndServe(); err != nil {
 			panic(err)
 		}
 	} else {

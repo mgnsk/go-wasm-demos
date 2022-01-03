@@ -4,7 +4,6 @@
 package wrpc
 
 import (
-	"context"
 	"fmt"
 	"syscall/js"
 
@@ -12,25 +11,25 @@ import (
 )
 
 // ListenAndServe runs the wrpc server on worker.
-func ListenAndServe(ctx context.Context) error {
+func ListenAndServe() error {
 	if !jsutil.IsWorker() {
 		panic("server: must run in webworker environment")
 	}
 
 	port := NewMessagePort(js.Global())
-	if err := port.Write(ctx, map[string]interface{}{}, nil); err != nil {
+	if err := port.WriteMessage(map[string]interface{}{}, nil); err != nil {
 		return fmt.Errorf("server: error sending init ACK: %w", err)
 	}
 
 	for {
-		data, err := port.Read(ctx)
+		data, err := port.ReadMessage()
 		if err != nil {
 			return fmt.Errorf("server: error reading from port: %w", err)
 		}
 		switch {
 		case !data.Get("call").IsUndefined():
 			call := NewCallFromJS(data)
-			if err := port.Write(ctx, map[string]interface{}{"received": true}, nil); err != nil {
+			if err := port.WriteMessage(map[string]interface{}{"received": true}, nil); err != nil {
 				panic(err)
 			}
 			go call.ExecuteLocal()

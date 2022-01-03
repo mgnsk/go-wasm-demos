@@ -17,8 +17,8 @@ type Call struct {
 	localWriter io.WriteCloser
 	localReader io.Reader
 
-	remoteWriter *Conn
-	remoteReader *Conn
+	remoteWriter *MessagePort
+	remoteReader *MessagePort
 
 	call string
 }
@@ -31,17 +31,17 @@ func NewCall(w io.WriteCloser, r io.Reader, name string) Call {
 		call: name,
 	}
 
-	if conn, ok := w.(*Conn); ok {
-		c.remoteWriter = conn
+	if p, ok := w.(*MessagePort); ok {
+		c.remoteWriter = p
 	} else {
-		c.remoteWriter, c.localReader = connPipe()
+		c.remoteWriter, c.localReader = Pipe()
 	}
 
 	if r != nil {
-		if conn, ok := r.(*Conn); ok {
+		if conn, ok := r.(*MessagePort); ok {
 			c.remoteReader = conn
 		} else {
-			c.remoteReader, c.localWriter = connPipe()
+			c.remoteReader, c.localWriter = Pipe()
 		}
 	}
 
@@ -50,11 +50,11 @@ func NewCall(w io.WriteCloser, r io.Reader, name string) Call {
 
 // NewCallFromJS constructs a call from JS message.
 func NewCallFromJS(data js.Value) Call {
-	w := NewConn(NewMessagePort(data.Get("writer")))
+	w := NewMessagePort(data.Get("writer"))
 
-	var r *Conn
+	var r *MessagePort
 	if reader := data.Get("reader"); !reader.IsUndefined() {
-		r = NewConn(NewMessagePort(reader))
+		r = NewMessagePort(reader)
 	}
 
 	return Call{

@@ -4,9 +4,7 @@
 package wrpc
 
 import (
-	"context"
 	"io"
-	"time"
 )
 
 var calls = map[string]func(io.WriteCloser, io.Reader){}
@@ -26,7 +24,7 @@ func Go(w io.WriteCloser, r io.Reader, callNames ...string) {
 		if i == len(callNames)-1 {
 			cs[i] = goOne(w, prevReader, name)
 		} else {
-			rc, wc := connPipe()
+			rc, wc := Pipe()
 			cs[i] = goOne(wc, prevReader, name)
 			prevReader = rc
 		}
@@ -43,15 +41,12 @@ func goOne(w io.WriteCloser, r io.Reader, name string) Call {
 
 	call := NewCall(w, r, name)
 
-	worker, err := NewWorkerWithTimeout("index.js", 3*time.Second)
+	worker, err := NewWorker("index.js")
 	if err != nil {
 		panic(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	if err := worker.Call(ctx, call); err != nil {
+	if err := worker.Call(call); err != nil {
 		panic(err)
 	}
 

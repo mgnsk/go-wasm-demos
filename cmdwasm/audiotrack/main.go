@@ -5,7 +5,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"encoding/gob"
 	"errors"
 	"io"
@@ -21,8 +20,6 @@ import (
 )
 
 func main() {
-	ctx := context.TODO()
-
 	if jsutil.IsWorker() {
 		wrpc.Handle("generateChunks", func(w io.WriteCloser, _ io.Reader) {
 			jsutil.ConsoleLog("2. worker")
@@ -86,7 +83,7 @@ func main() {
 			}
 		})
 
-		if err := wrpc.ListenAndServe(ctx); err != nil {
+		if err := wrpc.ListenAndServe(); err != nil {
 			panic(err)
 		}
 	} else {
@@ -99,14 +96,7 @@ func browser() {
 	defer jsutil.ConsoleLog("Exiting main program")
 	defer wg.Wait()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	jsutil.ConsoleLog("Starting audio")
-
-	startAudio(ctx)
-
-	select {}
+	startAudio()
 }
 
 func forEachChunk(r io.Reader, cb func(audio.Chunk)) {
@@ -135,7 +125,7 @@ const (
 	bufferDuration = 200 * time.Millisecond
 )
 
-func startAudio(ctx context.Context) {
+func startAudio() {
 	// Master tracks.
 	masterReader, masterWriter := io.Pipe()
 	wrpc.Go(masterWriter, nil, "audioSource", "passthrough")

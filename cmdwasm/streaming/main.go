@@ -6,7 +6,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -18,13 +17,12 @@ import (
 )
 
 func main() {
-	ctx := context.TODO()
-
 	if jsutil.IsWorker() {
 		wrpc.Handle("stringGeneratorWorker", stringGeneratorWorker)
 		wrpc.Handle("upperCaseWorker", upperCaseWorker)
 		wrpc.Handle("reverseWorker", reverseWorker)
-		if err := wrpc.ListenAndServe(ctx); err != nil {
+
+		if err := wrpc.ListenAndServe(); err != nil {
 			panic(err)
 		}
 	} else {

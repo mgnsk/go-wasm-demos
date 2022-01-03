@@ -2,33 +2,16 @@ package wrpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
+	"os"
 	"runtime"
 	"sync"
 	"syscall/js"
+
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
 )
-
-// Reader is a port reader interface.
-type Reader interface {
-	Read(context.Context) (js.Value, error)
-}
-
-// Writer is a port writer interface.
-type Writer interface {
-	Write(context.Context, map[string]interface{}, []interface{}) error
-}
-
-// ReadWriter is a port read-writer interface.
-type ReadWriter interface {
-	Reader
-	Writer
-}
-
-// ReadWriteCloser is a port reader, writer and closer interface.
-type ReadWriteCloser interface {
-	ReadWriter
-	io.Closer
-}
 
 // MessagePort is a synchronous JS MessagePort wrapper.
 type MessagePort struct {
@@ -81,10 +64,8 @@ func (p *MessagePort) JSValue() js.Value {
 }
 
 // Read reads a single message or error from the port.
-func (p *MessagePort) Read(ctx context.Context) (js.Value, error) {
+func (p *MessagePort) ReadMessage() (js.Value, error) {
 	select {
-	case <-ctx.Done():
-		return js.Value{}, ctx.Err()
 	case <-p.done:
 		return js.Value{}, p.err
 	case msg := <-p.messages:
@@ -94,16 +75,48 @@ func (p *MessagePort) Read(ctx context.Context) (js.Value, error) {
 }
 
 // Write is a blocking postMessage call.
-func (p *MessagePort) Write(ctx context.Context, messages map[string]interface{}, transferables []interface{}) error {
+func (p *MessagePort) WriteMessage(messages map[string]interface{}, transferables []interface{}) error {
 	p.value.Call("postMessage", messages, transferables)
 	select {
-	case <-ctx.Done():
-		return ctx.Err()
 	case <-p.done:
 		return p.err
 	case <-p.ack:
 		return nil
 	}
+}
+
+// Read a byte array message from the conn.
+func (p *MessagePort) Read(b []byte) (n int, err error) {
+	msg, err := p.ReadMessage()
+	if err != nil {
+		return 0, err
+	}
+
+	arr := msg.Get("arr")
+	if arr.IsUndefined() {
+		return 0, fmt.Errorf("expected an ArrayBuffer message")
+	}
+
+	return copy(b, array.ArrayBuffer(arr).Bytes()), nil
+}
+
+// Write a byte array message into the conn.
+func (p *MessagePort) Write(b []byte) (n int, err error) {
+	arr := array.NewArrayBufferFromSlice(b).JSValue()
+	messages := map[string]interface{}{"arr": arr}
+	transferables := []interface{}{arr}
+
+	if err := p.WriteMessage(messages, transferables); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return 0, io.ErrClosedPipe
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return 0, os.ErrDeadlineExceeded
+		}
+		return 0, err
+	}
+
+	return len(b), nil
 }
 
 // Close the port. All pending reads and writes are unblocked and return io.ErrClosedPipe.
