@@ -119,7 +119,7 @@ func (a ArrayBuffer) Float64Array() TypedArray {
 	)
 }
 
-// Len returns the length of byte array.
+// Len returns the length of the array buffer.
 func (a ArrayBuffer) Len() int {
 	return a.JSValue().Get("byteLength").Int()
 }

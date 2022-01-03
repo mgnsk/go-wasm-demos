@@ -50,6 +50,11 @@ func (a TypedArray) ArrayBuffer() ArrayBuffer {
 	return ArrayBuffer(a.JSValue().Get("buffer"))
 }
 
+// Len returns the length of the array.
+func (a TypedArray) Len() int {
+	return a.JSValue().Get("length").Int()
+}
+
 // Type returns the type of buffer.
 func (a TypedArray) Type() string {
 	return a.JSValue().Get("constructor").Get("name").String()
