@@ -12,11 +12,6 @@ import (
 // RemoteCall is a function which must be statically declared
 // so that it's pointer could be sent to another worker to run,
 // under the assumption that all workers run the same binary.
-//
-// Arguments:
-// input is a reader which is piped into the worker's input.
-// outputPort is call's output that must be closed when EOF.
-// All writes to out block until a corresponding read from its other side.
 type RemoteCall func(io.WriteCloser, io.Reader)
 
 // Go starts remote workers for each remote call and executes them in order by piping each
