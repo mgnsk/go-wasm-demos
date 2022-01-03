@@ -47,10 +47,10 @@ func browser() {
 	select {}
 }
 
-func forEachChunk(reader *textproto.Reader, cb func(audio.Chunk)) {
-	d := gob.NewDecoder(reader.DotReader())
+func forEachChunk(r io.Reader, cb func(audio.Chunk)) {
 	for {
 		var chunk audio.Chunk
+		d := gob.NewDecoder(r)
 		if err := d.Decode(&chunk); err != nil {
 			if errors.Is(err, io.EOF) {
 				return
@@ -61,11 +61,8 @@ func forEachChunk(reader *textproto.Reader, cb func(audio.Chunk)) {
 	}
 }
 
-func mustWriteChunk(writer *textproto.Writer, chunk audio.Chunk) {
-	dw := writer.DotWriter()
-	defer dw.Close()
-
-	e := gob.NewEncoder(dw)
+func mustWriteChunk(w io.Writer, chunk audio.Chunk) {
+	e := gob.NewEncoder(w)
 	if err := e.Encode(chunk); err != nil {
 		panic(err)
 	}
@@ -92,6 +89,7 @@ func startAudio(ctx context.Context) {
 		jsutil.ConsoleLog("1. worker")
 		// Schedule a subworker to fetch and decode the chunks.
 		chunkReader, chunkWriter := io.Pipe()
+
 		wrpc.Go(chunkWriter, nil, func(w io.WriteCloser, _ io.Reader) {
 			jsutil.ConsoleLog("2. worker")
 			defer w.Close()
@@ -108,8 +106,11 @@ func startAudio(ctx context.Context) {
 			chunkDuration := time.Duration(dur)
 			jsutil.Dump("Chunk duration:", chunkDuration)
 
+			dw := writer.DotWriter()
+			defer dw.Close()
+
 			for chunk := range chunks {
-				mustWriteChunk(writer, chunk)
+				mustWriteChunk(dw, chunk)
 				//	_ = tb
 				// TODO time.Sleep takes a lot of resources.
 				// Block if necessary to to stay ahead only buffer duration.
@@ -125,10 +126,15 @@ func startAudio(ctx context.Context) {
 			writer := textproto.NewWriter(bufio.NewWriter(w))
 			defer writer.W.Flush()
 
-			forEachChunk(reader, func(chunk audio.Chunk) {
+			dw := writer.DotWriter()
+			defer dw.Close()
+
+			dr := reader.DotReader()
+
+			forEachChunk(dr, func(chunk audio.Chunk) {
 				// Apply gain FX.
 				audio.Gain(&chunk, 0.5)
-				mustWriteChunk(writer, chunk)
+				mustWriteChunk(dw, chunk)
 			})
 		})
 	}
@@ -147,12 +153,13 @@ func startAudio(ctx context.Context) {
 	// Master tracks.
 	masterReader, masterWriter := io.Pipe()
 	wrpc.Go(masterWriter, nil, audioDecoder, audioPassthrough)
-	reader := textproto.NewReader(bufio.NewReader(masterReader))
 
 	audioCtx := js.Global().Get("AudioContext").New()
 	player := js.Global().Get("PCMPlayer").New(audioCtx)
 
-	forEachChunk(reader, func(chunk audio.Chunk) {
+	dr := textproto.NewReader(bufio.NewReader(masterReader)).DotReader()
+
+	forEachChunk(dr, func(chunk audio.Chunk) {
 		// TODO: It didn't make a difference if I sent
 		// the channels together or separately.
 		// Should rather try an URL object approach for some MIME type.

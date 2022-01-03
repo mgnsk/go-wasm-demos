@@ -21,11 +21,13 @@ func GenerateChunks(totalDur time.Duration, chunkSamples int) chan Chunk {
 	go func() {
 		defer close(chunks)
 		index, streamStart := uint64(0), uint64(0)
+		config := audio.NewAudioConfig()
 
 		g := generators.NewSineWaveOscillator()
 		chunkDur := time.Duration((float64(chunkSamples) * float64(time.Second)) / (2 * 44100))
+
 		for i := time.Duration(0); i < totalDur; i += chunkDur {
-			samples := g.GetSamples(audio.NewAudioConfig(), chunkSamples)
+			samples := g.GetSamples(config, chunkSamples)
 			f32Samples := make([]float32, len(samples))
 			for i, v := range samples {
 				f32Samples[i] = float32(v)

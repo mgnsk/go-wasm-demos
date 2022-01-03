@@ -98,3 +98,12 @@ func (c Call) JSMessage() (map[string]interface{}, []interface{}) {
 	}
 	return messages, transferables
 }
+
+func mustCopy(dst io.WriteCloser, src io.Reader) {
+	defer dst.Close()
+	if n, err := io.Copy(dst, src); err != nil {
+		panic(err)
+	} else if n == 0 {
+		panic("copyAndClose: zero copy")
+	}
+}

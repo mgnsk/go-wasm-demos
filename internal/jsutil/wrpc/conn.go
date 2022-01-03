@@ -66,9 +66,7 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 		return 0, fmt.Errorf("expected an ArrayBuffer message")
 	}
 
-	copy(b, array.ArrayBuffer(arr).Bytes())
-
-	return len(b), nil
+	return copy(b, array.ArrayBuffer(arr).Bytes()), nil
 }
 
 // Write a byte array message into the conn.

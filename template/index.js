@@ -43,33 +43,3 @@ PCMPlayer.prototype.playNext = function (samplesLeft, samplesRight) {
   const result = await WebAssembly.instantiate(buffer, go.importObject);
   go.run(result.instance);
 })();
-// (() => {
-//   if (!WebAssembly.instantiateStreaming) {
-//     // polyfill
-//     WebAssembly.instantiateStreaming = async (resp, importObject) => {
-//       const source = await (await resp).arrayBuffer();
-//       return await WebAssembly.instantiate(source, importObject);
-//     };
-//   }
-//   const go = new Go();
-//   let mod, inst;
-//   WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then(
-//     (result) => {
-//       mod = result.module;
-//       inst = result.instance;
-//       run().then(
-//         (result) => {
-//           console.log("Ran WASM: ", result);
-//         },
-//         (failure) => {
-//           console.log("Failed to run WASM: ", failure);
-//         }
-//       );
-//     }
-//   );
-//   async function run() {
-//     await go.run(inst);
-//     inst = await WebAssembly.instantiate(mod, go.importObject); // reset instance
-//   }
-// })();
-// };

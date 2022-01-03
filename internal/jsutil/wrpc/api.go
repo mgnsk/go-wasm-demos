@@ -60,12 +60,3 @@ func goOne(w io.WriteCloser, r io.Reader, f RemoteCall) Call {
 
 	return call
 }
-
-func mustCopy(dst io.WriteCloser, src io.Reader) {
-	defer dst.Close()
-	if n, err := io.Copy(dst, src); err != nil {
-		panic(err)
-	} else if n == 0 {
-		panic("copyAndClose: zero copy")
-	}
-}
