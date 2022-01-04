@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
@@ -18,26 +17,37 @@ import (
 
 func main() {
 	if jsutil.IsWorker() {
-		wrpc.Handle("serve", func(w io.Writer, r io.Reader) {
-			mux := http.NewServeMux()
-			mux.HandleFunc("/hello", func(w http.ResponseWriter, _ *http.Request) {
-				fmt.Fprintf(w, "Hello world from server!")
-			})
-
-			s := &http.Server{
-				Handler:        mux,
-				ReadTimeout:    10 * time.Second,
-				WriteTimeout:   10 * time.Second,
-				MaxHeaderBytes: 1 << 20,
-			}
-
-			if err := s.Serve(newListener(w, r)); err != nil {
-				fmt.Println(err)
-			}
+		mux := http.NewServeMux()
+		mux.HandleFunc("/hello", func(w http.ResponseWriter, _ *http.Request) {
+			fmt.Fprintf(w, "Hello world from server!")
 		})
+
+		done := make(chan struct{})
+		conns := make(chan net.Conn)
+		wrpc.Handle("serve", func(w io.Writer, r io.Reader) {
+			conns <- combine(w, r)
+			<-done
+		})
+
+		s := &http.Server{
+			Handler:        mux,
+			ReadTimeout:    10 * time.Second,
+			WriteTimeout:   10 * time.Second,
+			MaxHeaderBytes: 1 << 20,
+		}
+
+		go func() {
+			defer close(done)
+			if err := s.Serve(newListener(conns)); err != nil {
+				panic(err)
+			}
+		}()
+
 		if err := wrpc.ListenAndServe(); err != nil {
 			panic(err)
 		}
+
+		<-done
 	} else {
 		browser()
 	}
@@ -72,30 +82,31 @@ func browser() {
 }
 
 type workerListener struct {
-	conn net.Conn
-	once sync.Once
-	done chan struct{}
+	conns <-chan net.Conn
+	done  chan struct{}
 }
 
-func newListener(w io.Writer, r io.Reader) *workerListener {
+func combine(w io.Writer, r io.Reader) net.Conn {
 	c1, c2 := net.Pipe()
 	go io.Copy(c1, r)
 	go io.Copy(w, c1)
+	return c2
+}
+
+func newListener(conns <-chan net.Conn) *workerListener {
 	return &workerListener{
-		conn: c2,
-		done: make(chan struct{}),
+		conns: conns,
+		done:  make(chan struct{}),
 	}
 }
 
-func (l *workerListener) Accept() (conn net.Conn, err error) {
-	l.once.Do(func() {
-		conn = l.conn
-	})
-	if conn != nil {
-		return conn, nil
+func (l *workerListener) Accept() (net.Conn, error) {
+	select {
+	case c := <-l.conns:
+		return c, nil
+	case <-l.done:
+		return nil, fmt.Errorf("listener closed")
 	}
-	<-l.done
-	return nil, fmt.Errorf("listener closed")
 }
 
 func (l *workerListener) Close() error {
