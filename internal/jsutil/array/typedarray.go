@@ -1,87 +1,61 @@
+//go:build js && wasm
 // +build js,wasm
 
 package array
 
 import (
-	"errors"
 	"fmt"
 	"syscall/js"
 )
 
-// TypedArray is a JS wrapper for typed array.
+// TypedArray is a JS TypedArray.
 type TypedArray js.Value
 
-// CreateTypedArrayFromSlice copies and creates a read only ArrayBuffer buffer.
-func CreateTypedArrayFromSlice(s interface{}) (TypedArray, error) {
-	ab, err := CreateBufferFromSlice(s)
-	if err != nil {
-		return TypedArray(js.Null()), err
-	}
-
+// NewTypedArrayFromSlice creates a new read-only TypedArray.
+func NewTypedArrayFromSlice(s interface{}) TypedArray {
+	ab := NewArrayBufferFromSlice(s)
 	switch s.(type) {
 	case []int8:
-		return ab.Int8Array(), nil
+		return ab.Int8Array()
 	case []int16:
-		return ab.Int16Array(), nil
+		return ab.Int16Array()
 	case []int32:
-		return ab.Int32Array(), nil
+		return ab.Int32Array()
 	case []int64:
-		return ab.BigInt64Array(), nil
+		return ab.BigInt64Array()
 	case []uint8:
-		return ab.Uint8Array(), nil
+		return ab.Uint8Array()
 	case []uint16:
-		return ab.Uint16Array(), nil
+		return ab.Uint16Array()
 	case []uint32:
-		return ab.Uint32Array(), nil
+		return ab.Uint32Array()
 	case []uint64:
-		return ab.BigUint64Array(), nil
+		return ab.BigUint64Array()
 	case []float32:
-		return ab.Float32Array(), nil
+		return ab.Float32Array()
 	case []float64:
-		return ab.Float64Array(), nil
+		return ab.Float64Array()
 	default:
-		return TypedArray(js.Null()), fmt.Errorf("CreateTypedArrayFromSlice: invalid type")
+		panic(fmt.Errorf("NewTypedArrayFromSlice: invalid type '%T'", s))
 	}
 }
 
-// JSValue returns the underlying js value.
+// JSValue returns the underlying JS value.
 func (a TypedArray) JSValue() js.Value {
 	return js.Value(a)
 }
 
-// Buffer returns the underlying ArrayBuffer.
-func (a TypedArray) Buffer() js.Value {
-	return a.JSValue().Get("buffer")
+// ArrayBuffer returns the underlying ArrayBuffer.
+func (a TypedArray) ArrayBuffer() ArrayBuffer {
+	return ArrayBuffer(a.JSValue().Get("buffer"))
 }
 
-// ByteLength returns the length of underlying data.
-func (a TypedArray) ByteLength() int {
-	return a.JSValue().Get("byteLength").Int()
+// Len returns the length of the array.
+func (a TypedArray) Len() int {
+	return a.JSValue().Get("length").Int()
 }
 
 // Type returns the type of buffer.
 func (a TypedArray) Type() string {
 	return a.JSValue().Get("constructor").Get("name").String()
-}
-
-// CopyBytes copies out bytes from js typed array.
-func (a TypedArray) CopyBytes() ([]byte, error) {
-	length := a.ByteLength()
-	if length == 0 {
-		return nil, errors.New("CopyBytes: 0 copy")
-	}
-	b := make([]byte, length)
-	buf := Buffer(a.Buffer()).Uint8Array()
-	if n := js.CopyBytesToGo(b, buf.JSValue()); n != length {
-		return nil, fmt.Errorf("CopyBytes: copied: %d, expected: %d", n, length)
-	}
-	return b, nil
-}
-
-// Must panics on error.
-func Must(arr TypedArray, err error) TypedArray {
-	if err != nil {
-		panic(err)
-	}
-	return arr
 }

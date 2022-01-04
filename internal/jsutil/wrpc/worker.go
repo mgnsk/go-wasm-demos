@@ -1,69 +1,52 @@
+//go:build js && wasm
 // +build js,wasm
 
 package wrpc
 
 import (
-	"context"
+	"fmt"
 	"syscall/js"
-
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
 
-func ack(value js.Value) {
-	value.Call("postMessage", map[string]interface{}{
-		"ack": true,
-	})
+// Worker is a Web Worker wrapper.
+type Worker struct {
+	worker js.Value
+	port   *MessagePort
 }
 
-// RunServer runs on the webworker side to start the server implementing the WebRPC.
-func RunServer(ctx context.Context) {
-	if !jsutil.IsWorker {
-		panic("Must have webworker environment")
+// Close the worker.
+func (w *Worker) Close() {
+	w.worker.Call("terminate")
+}
+
+// Call sends a remote call to be executed on the worker. Call returns when
+// the the worker receives the call.
+func (w *Worker) Call(call *Call) error {
+	messages, transferables := call.JSMessage()
+
+	if err := w.port.WriteMessage(messages, transferables); err != nil {
+		return fmt.Errorf("error sending call: %w", err)
+	}
+	if _, err := w.port.ReadMessage(); err != nil {
+		return fmt.Errorf("error waiting for call to be received: %w", err)
 	}
 
-	jsutil.ConsoleLog("Worker started")
+	return nil
+}
 
-	// Wait for the first message to receive the messagePort on that
-	// RPC calls from main thread are sent to.
-	onmessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		defer ack(js.Global())
+// NewWorker spawns a worker.
+func NewWorker(url string) (*Worker, error) {
+	worker := js.Global().Get("Worker").New(url)
 
-		data := args[0].Get("data")
+	newWorker := &Worker{
+		worker: worker,
+		port:   NewMessagePort(worker),
+	}
 
-		// Add the main thread port.
-		mainPort := data.Get("main_port")
-		if !mainPort.IsUndefined() {
-			// Set up the main port that receives commands from main thread.
-			NewMessagePort(mainPort)
+	// Wait for the worker to be ready.
+	if _, err := newWorker.port.ReadMessage(); err != nil {
+		return nil, fmt.Errorf("error waiting for worker to become ready: %w", err)
+	}
 
-			return nil
-			// Not scheduling to main thread from the worker.
-		}
-
-		// Start the scheduler to specified port.
-		startScheduler := data.Get("start_scheduler")
-		if jsutil.IsWorker && !startScheduler.IsUndefined() {
-			networkPort := data.Get("port")
-			np := NewMessagePort(networkPort)
-
-			// Start scheduling to the port until the port gets closed.
-			go func() {
-				if err := GlobalScheduler.RunScheduler(np.ctx, np); err != nil {
-					jsutil.Dump("Scheduling stopped:", err)
-					panic(err)
-					// TODO
-				}
-			}()
-
-			return nil
-		}
-
-		return nil
-	})
-	js.Global().Set("onmessage", onmessage)
-
-	// Notify main thread that worker started.
-	ack(js.Global())
-
-	select {}
+	return newWorker, nil
 }

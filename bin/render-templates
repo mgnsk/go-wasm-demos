@@ -4,49 +4,18 @@ set -eo pipefail
 
 root=$1
 
-GOROOT=$(go env GOROOT)
-
-# Hack around the templatetool for single file single template rendering
-# The template name and the filename are the same.
-function render {
-    export TPL_GLOB=$1
-    tplName=$(basename $1)
-    shift
-    templatetool $tplName "$@"
-}
-
-wasmExecJSPath="$(go env GOROOT)/misc/wasm/wasm_exec.js"
+wasmExecJSPath="$GOROOT/misc/wasm/wasm_exec.js"
 
 echo "# Generating public dirs..."
 
-host="http://localhost:8080"
-#host="https://mgnsk.github.io/go-wasm-demos/public"
-
-# Render public dirs for all wasm apps.
-rm -rf $root/public/
-
 for app in $root/cmdwasm/*/
 do
-    app=$(basename $app)
+    app=$(basename "$app")
 
     echo "$app"
 
-    mkdir -p $root/public/$app/
-
-    render $root/template/index.js.tpl \
-        --WasmExecJS "$(cat $wasmExecJSPath)" \
-        --WasmURL "$host/$app/$app.wasm" > $root/public/$app/index.js
-
-    render $root/template/index.js.go.tpl \
-        --Package "$app" \
-        --IndexJS "$(cat $root/public/$app/index.js | base64)" > $root/public/$app/index.js.go
-
-    render $root/template/index.html.tpl \
-        --CanvasID "gocanvas" > $root/public/$app/index.html
+    mkdir -p "$root/public/$app"
+    cp "$root/third_party/js/stats.min.js" "$root/public/$app/stats.min.js"
+    cat "$wasmExecJSPath" "$root/template/index.js" > "$root/public/$app/index.js"
+    cp "$root/template/index.html" "$root/public/$app/index.html"
 done
-
-echo "# Copying static data..."
-
-# Copy static data.
-cp $root/test2.wav $root/public/test2.wav
-cp $root/third_party/js/stats.min.js $root/public/stats.min.js

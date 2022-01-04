@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 // Package jsutil provides general functionality for any application running on wasm.
@@ -13,13 +14,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-// IsWorker boolean
-var (
-	IsWorker bool
-)
-
-func init() {
-	IsWorker = js.Global().Get("WorkerGlobalScope").Type() != js.TypeUndefined
+// IsWorker returns whether we are running in a webworker.
+func IsWorker() bool {
+	return js.Global().Get("WorkerGlobalScope").Type() != js.TypeUndefined
 }
 
 // CreateURLObject creates an url object from javascript source.
@@ -90,7 +87,7 @@ func SliceToByteSlice(s interface{}) (b []byte) {
 		h.Len *= 8
 		h.Cap *= 8
 	default:
-		panic(fmt.Sprintf("util: unexpected value: %T", s))
+		panic(fmt.Sprintf("SliceToByteSlice: unexpected value: %T", s))
 	}
 	b = *(*[]byte)(unsafe.Pointer(h))
 	runtime.KeepAlive(s)
@@ -108,74 +105,74 @@ func (d *ByteDecoder) Int8Slice(b []byte) []int8 {
 }
 
 func (d *ByteDecoder) Int16Slice(b []byte) []int16 {
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&b))
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 	// same as int(unsafe.Sizeof(int16(0)))
 	header.Len /= 2
 	header.Cap /= 2
-	data := *(*[]int16)(unsafe.Pointer(&header))
-	//runtime.KeepAlive(d.b)
+	data := *(*[]int16)(unsafe.Pointer(header))
+	runtime.KeepAlive(b)
 	return data
 }
 
 func (d *ByteDecoder) Int32Slice(b []byte) []int32 {
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&b))
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 	header.Len /= 4
 	header.Cap /= 4
-	data := *(*[]int32)(unsafe.Pointer(&header))
-	//runtime.KeepAlive(b)
+	data := *(*[]int32)(unsafe.Pointer(header))
+	runtime.KeepAlive(b)
 	return data
 }
 
 func (d *ByteDecoder) Int64Slice(b []byte) []int64 {
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&b))
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 	header.Len /= 8
 	header.Cap /= 8
-	data := *(*[]int64)(unsafe.Pointer(&header))
-	//runtime.KeepAlive(b)
+	data := *(*[]int64)(unsafe.Pointer(header))
+	runtime.KeepAlive(b)
 	return data
 }
 
 func (d *ByteDecoder) Uint16Slice(b []byte) []uint16 {
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&b))
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 	header.Len /= 2
 	header.Cap /= 2
-	data := *(*[]uint16)(unsafe.Pointer(&header))
-	//runtime.KeepAlive(b)
+	data := *(*[]uint16)(unsafe.Pointer(header))
+	runtime.KeepAlive(b)
 	return data
 }
 
 func (d *ByteDecoder) Uint32Slice(b []byte) []uint32 {
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&b))
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 	header.Len /= 4
 	header.Cap /= 4
-	data := *(*[]uint32)(unsafe.Pointer(&header))
-	//runtime.KeepAlive(b)
+	data := *(*[]uint32)(unsafe.Pointer(header))
+	runtime.KeepAlive(b)
 	return data
 }
 
 func (d *ByteDecoder) Uint64Slice(b []byte) []uint64 {
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&b))
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 	header.Len /= 8
 	header.Cap /= 8
-	data := *(*[]uint64)(unsafe.Pointer(&header))
-	//runtime.KeepAlive(b)
+	data := *(*[]uint64)(unsafe.Pointer(header))
+	runtime.KeepAlive(b)
 	return data
 }
 
 func (d *ByteDecoder) Float32Slice(b []byte) []float32 {
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&b))
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 	header.Len /= 4
 	header.Cap /= 4
-	data := *(*[]float32)(unsafe.Pointer(&header))
-	//runtime.KeepAlive(b)
+	data := *(*[]float32)(unsafe.Pointer(header))
+	runtime.KeepAlive(b)
 	return data
 }
 
 func (d *ByteDecoder) Float64Slice(b []byte) []float64 {
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&b))
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 	header.Len /= 8
 	header.Cap /= 8
-	data := *(*[]float64)(unsafe.Pointer(&header))
-	//runtime.KeepAlive(b)
+	data := *(*[]float64)(unsafe.Pointer(header))
+	runtime.KeepAlive(b)
 	return data
 }

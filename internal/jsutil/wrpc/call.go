@@ -1,58 +1,127 @@
+//go:build js && wasm
 // +build js,wasm
 
 package wrpc
 
 import (
+	"fmt"
+	"io"
 	"syscall/js"
-	"unsafe"
 )
 
 // Call is a remote call that can be scheduled to a worker.
 type Call struct {
-	// RemoteCall will be run in a remote webworker.
-	RemoteCall RemoteCall
-	// InputReader is a port where the worker can read its input data from.
-	Input *MessagePort
-	// ResultPort is the port where the result gets written into.
-	Output *MessagePort
+	w io.Writer
+	r io.Reader
+
+	localWriter io.WriteCloser
+	localReader io.Reader
+	localDone   *MessagePort
+
+	remoteWriter *MessagePort
+	remoteReader *MessagePort
+	remoteDone   *MessagePort
+
+	call string
 }
 
-// Execute the call locally.
-func (c Call) exec(cb func()) {
-	defer cb()
-	c.RemoteCall(c.Input, c.Output)
+// NewCall creates a new wrpc call.
+func NewCall(w io.Writer, r io.Reader, name string) *Call {
+	c := &Call{
+		w:    w,
+		r:    r,
+		call: name,
+	}
+
+	c.localDone, c.remoteDone = Pipe()
+
+	if p, ok := w.(*MessagePort); ok {
+		c.remoteWriter = p
+	} else {
+		c.remoteWriter, c.localReader = Pipe()
+	}
+
+	if r != nil {
+		if conn, ok := r.(*MessagePort); ok {
+			c.remoteReader = conn
+		} else {
+			c.remoteReader, c.localWriter = Pipe()
+		}
+	}
+
+	return c
 }
 
-// getJSCall returns js messages along with transferables that can be sent over a MessagePort.
-func (c Call) getJS() (messages map[string]interface{}, transferables []interface{}) {
-	rc := *(*uintptr)(unsafe.Pointer(&c.RemoteCall))
-	messages = map[string]interface{}{
-		"rc":     int(rc),
-		"output": c.Output,
+// NewCallFromJS constructs a call from JS message.
+func NewCallFromJS(data js.Value) *Call {
+	var r *MessagePort
+	if reader := data.Get("reader"); !reader.IsUndefined() {
+		r = NewMessagePort(reader)
 	}
-	transferables = []interface{}{
-		c.Output,
+
+	return &Call{
+		remoteWriter: NewMessagePort(data.Get("writer")),
+		remoteReader: r,
+		remoteDone:   NewMessagePort(data.Get("done")),
+		call:         data.Get("call").String(),
 	}
-	if c.Input != nil {
-		messages["input"] = c.Input
-		transferables = append(transferables, c.Input)
-	}
-	return
 }
 
-// newCallFromJS constructs a call from javascript arguments.
-func newCallFromJS(rc, input, output js.Value) Call {
-	rcPtr := uintptr(rc.Int())
-	remoteCall := *(*RemoteCall)(unsafe.Pointer(&rcPtr))
+// ExecuteLocal executes the call locally.
+// It blocks until the call returns.
+func (c *Call) ExecuteLocal() {
+	call, ok := calls[c.call]
+	if !ok {
+		panic(fmt.Errorf("call '%s' not found", c.call))
+	}
+	defer c.remoteDone.Close()
+	defer c.remoteWriter.Close()
+	call(c.remoteWriter, c.remoteReader)
+}
 
-	var inputPort *MessagePort
-	if input.Truthy() {
-		inputPort = NewMessagePort(input)
+// ExecuteRemote executes the remote call.
+// It blocks until the call returns.
+func (c *Call) ExecuteRemote() {
+	if c.localReader != nil {
+		go mustCopyAll(c.w, c.localReader)
 	}
 
-	return Call{
-		RemoteCall: remoteCall,
-		Input:      inputPort,
-		Output:     NewMessagePort(output),
+	if c.localWriter != nil {
+		go mustCopyAll(c.localWriter, c.r)
+	}
+
+	if _, err := c.localDone.ReadMessage(); err != io.EOF {
+		panic(err)
+	}
+}
+
+// JSMessage returns the JS message payload.
+func (c *Call) JSMessage() (map[string]interface{}, []interface{}) {
+	messages := map[string]interface{}{
+		"call":   c.call,
+		"writer": c.remoteWriter.JSValue(),
+		"done":   c.remoteDone.JSValue(),
+	}
+	transferables := []interface{}{c.remoteWriter.JSValue(), c.remoteDone.JSValue()}
+	if c.remoteReader != nil {
+		messages["reader"] = c.remoteReader.JSValue()
+		if rr := c.remoteReader; rr != c.remoteWriter {
+			// Don't sent duplicate conn.
+			transferables = append(transferables, rr.JSValue())
+		}
+	}
+	return messages, transferables
+}
+
+func mustCopyAll(dst io.Writer, src io.Reader) {
+	if n, err := io.Copy(dst, src); err != nil {
+		panic(err)
+	} else if n == 0 {
+		panic("copyAndClose: zero copy")
+	}
+	if c, ok := dst.(io.Closer); ok {
+		if err := c.Close(); err != nil {
+			panic(err)
+		}
 	}
 }

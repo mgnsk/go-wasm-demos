@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package webgl
@@ -19,12 +20,12 @@ func (s Shader) JSValue() js.Value {
 
 // CreateShader creates and compiles a WebGLShader.
 func CreateShader(gl *GL, src string, typ GLType) (s Shader, err error) {
-	shader := gl.Ctx().Call("createShader", typ)
+	shader := gl.Ctx().Call("createShader", typ.JSValue())
 	gl.Ctx().Call("shaderSource", shader, src)
 	gl.Ctx().Call("compileShader", shader)
 
 	// Check the compile status
-	compiled := gl.Ctx().Call("getShaderParameter", shader, gl.Types.CompileStatus)
+	compiled := gl.Ctx().Call("getShaderParameter", shader, gl.Types.CompileStatus.JSValue())
 	if !compiled.Truthy() {
 		lastError := gl.Ctx().Call("getShaderInfoLog", shader).String()
 		gl.Ctx().Call("deleteShader", shader)
@@ -72,8 +73,8 @@ func (p *ShaderProgram) JSValue() js.Value {
 func CreateShaderProgram(gl *GL, vertShader Shader, fragShader Shader) (p ShaderProgram, err error) {
 	program := gl.Ctx().Call("createProgram")
 	// TODO check gl errors
-	gl.Ctx().Call("attachShader", program, vertShader)
-	gl.Ctx().Call("attachShader", program, fragShader)
+	gl.Ctx().Call("attachShader", program, vertShader.JSValue())
+	gl.Ctx().Call("attachShader", program, fragShader.JSValue())
 
 	// Bind shader attributes.
 	// for idx, attrib := range attribs {
@@ -83,7 +84,7 @@ func CreateShaderProgram(gl *GL, vertShader Shader, fragShader Shader) (p Shader
 	gl.Ctx().Call("linkProgram", program)
 
 	// Check the link status
-	linked := gl.Ctx().Call("getProgramParameter", program, gl.Types.LinkStatus)
+	linked := gl.Ctx().Call("getProgramParameter", program, gl.Types.LinkStatus.JSValue())
 	if !linked.Truthy() {
 		lastError := gl.Ctx().Call("getProgramInfoLog", program).String()
 		gl.Ctx().Call("deleteProgram", program)
@@ -94,7 +95,7 @@ func CreateShaderProgram(gl *GL, vertShader Shader, fragShader Shader) (p Shader
 	uniforms := make(map[string]Uniform)
 
 	// Fetch all uniforms from vertex shader.
-	numUniforms := gl.Ctx().Call("getProgramParameter", program, gl.Types.ActiveUniforms).Int()
+	numUniforms := gl.Ctx().Call("getProgramParameter", program, gl.Types.ActiveUniforms.JSValue()).Int()
 	for i := 0; i < numUniforms; i++ {
 		uniformInfo := gl.Ctx().Call("getActiveUniform", program, i)
 		if !uniformInfo.Truthy() {

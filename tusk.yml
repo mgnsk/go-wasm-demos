@@ -1,43 +1,14 @@
-options:
-  uid:
-    usage: User ID for local images.
-    default:
-      command: id -u
-  gid:
-    usage: Group ID for local images.
-    default: 65535
-  user:
-    usage: Username for local images.
-    default:
-      command: id -un
-  group:
-    usage: Group name for local images.
-    default:
-      command: id -un
-  docker_gid:
-    usage: Group ID of docker group.
-    default:
-      command: getent group docker | cut -d ":" -f3
-
+---
 tasks:
-  generate:
-    usage: Run application generation.
-    run:
-      - set-environment:
-          GOOS: linux
-          GOARCH: amd64
-      - command: podman run --rm --volume ${PWD}:/work uber/prototool prototool generate
-      - command: bin/render-templates $(pwd)
-      - command: go run cmd/genshaders/main.go --dir-shaders $(pwd)/shaders --output $(pwd)/gen/shader --package-name shader
-
-      # workarounds TODO
-      - command: rm -rf ./gen/github.com
-
   clean:
     usage: Clean application generated files and directories.
     run:
-      - command: rm -rf gen
       - command: rm -rf public
+
+  generate:
+    usage: Generate javascript files.
+    run:
+      - command: bin/render-templates $(pwd)
 
   build:
     usage: Build all apps.
@@ -46,13 +17,11 @@ tasks:
           GOOS: js
           GOARCH: wasm
       - command: |
-          # TODO currently links to all apps
-          wavURL="http://localhost:8080/test2.wav"
           for app in ${PWD}/cmdwasm/*/
           do
               app=$(basename $app)
-              echo "building $app"
-              go build -ldflags "-X main.wavURL=$wavURL" -o ${PWD}/public/$app/$app.wasm ${PWD}/cmdwasm/$app/main.go
+              echo "Building $app..."
+              go build -ldflags '-s -w' -o ${PWD}/public/$app/main.wasm ${PWD}/cmdwasm/$app/main.go
           done
 
   serve:
@@ -75,4 +44,4 @@ tasks:
       - command: go mod download
       - command: go mod vendor
       - command: sed -i 's/build windows/build windows js/g' ./vendor/github.com/onsi/ginkgo/internal/remote/output_interceptor_win.go
-      - command: go test -mod=vendor -v -count=1 -exec="$(go env GOROOT)/misc/wasm/go_js_wasm_exec" ${pkg}
+      - command: go test -mod=vendor -v -count=1 -exec="env --ignore-environment ${GOROOT}/misc/wasm/go_js_wasm_exec" ${pkg}
