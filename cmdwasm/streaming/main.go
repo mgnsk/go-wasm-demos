@@ -5,7 +5,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -109,23 +108,22 @@ func reverseWorker(w io.Writer, r io.Reader) {
 func browser() {
 	defer jsutil.ConsoleLog("Exiting main program")
 
+	// Schedule 3 workers to start streaming
+	r, w := wrpc.Go("stringGeneratorWorker", "upperCaseWorker", "reverseWorker")
+
 	// Specify the count of strings to be generated.
-	b := &bytes.Buffer{}
-	enc := gob.NewEncoder(b)
+	enc := gob.NewEncoder(w)
 	// Generate 10 strings
 	count := 10
 	if err := enc.Encode(&count); err != nil {
 		panic(err)
 	}
 
-	// Read final output from outputReader.
-	// Passes outputWriter to the last worker in chain.
-	outputReader, outputWriter := io.Pipe()
+	if err := w.Close(); err != nil {
+		panic(err)
+	}
 
-	// Schedule 3 workers to start streaming
-	wrpc.Go(outputWriter, b, "stringGeneratorWorker", "upperCaseWorker", "reverseWorker")
-
-	scanner := bufio.NewScanner(outputReader)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		jsutil.ConsoleLog("Main thread received:", scanner.Text())
 	}

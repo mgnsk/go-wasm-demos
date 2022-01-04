@@ -60,9 +60,11 @@ func browser() {
 		Timeout: time.Second * 3,
 		Transport: &http.Transport{
 			Dial: func(_, _ string) (net.Conn, error) {
-				localConn, remoteConn := net.Pipe()
-				wrpc.Go(remoteConn, remoteConn, "serve")
-				return localConn, nil
+				c1, c2 := net.Pipe()
+				r, w := wrpc.Go("serve")
+				go io.Copy(c1, r)
+				go io.Copy(w, c1)
+				return c2, nil
 			},
 		},
 	}

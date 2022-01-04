@@ -19,52 +19,46 @@ func Handle(name string, call RemoteCall) {
 }
 
 // Go starts remote workers for each remote call and executes them in order by piping each
-// call's output to the next input and letting the last worker write directly to w.
-func Go(w io.Writer, r io.Reader, callNames ...string) {
-	routines := make([]*webroutine, len(callNames))
-	prevReader := r
+// call's output to the next input and letting the last worker write back to caller.
+// The WriteCloser is piped to call's Reader and the Reader is piped from call's Writer.
+func Go(callNames ...string) (io.Reader, io.WriteCloser) {
+	remoteReader, localWriter := Pipe()
+	localReader, remoteWriter := Pipe()
+
+	calls := make([]*Call, len(callNames))
+	var prevReader io.Reader = remoteReader
 	for i, name := range callNames {
 		if i == len(callNames)-1 {
-			routines[i] = newWebRoutine(w, prevReader, name)
+			calls[i] = NewCall(remoteWriter, prevReader, name)
 		} else {
 			rc, wc := Pipe()
-			routines[i] = newWebRoutine(wc, prevReader, name)
+			calls[i] = NewCall(wc, prevReader, name)
 			prevReader = rc
 		}
 	}
-	for _, rt := range routines {
-		go rt.ExecuteAndClose()
-	}
-}
 
-type webroutine struct {
-	worker *Worker
-	call   *Call
-}
+	workers := make([]*Worker, len(calls))
+	for i, call := range calls {
+		worker, err := NewWorker("index.js")
+		if err != nil {
+			panic(err)
+		}
 
-func (r *webroutine) ExecuteAndClose() {
-	defer r.worker.Close()
-	r.call.ExecuteRemote()
-}
+		if err := worker.Call(call); err != nil {
+			panic(err)
+		}
 
-func newWebRoutine(w io.Writer, r io.Reader, name string) *webroutine {
-	if w == nil {
-		panic("w must not be nil")
+		workers[i] = worker
 	}
 
-	call := NewCall(w, r, name)
-
-	worker, err := NewWorker("index.js")
-	if err != nil {
-		panic(err)
+	for i, call := range calls {
+		worker := workers[i]
+		call := call
+		go func() {
+			defer worker.Close()
+			call.ExecuteRemote()
+		}()
 	}
 
-	if err := worker.Call(call); err != nil {
-		panic(err)
-	}
-
-	return &webroutine{
-		worker: worker,
-		call:   call,
-	}
+	return localReader, localWriter
 }

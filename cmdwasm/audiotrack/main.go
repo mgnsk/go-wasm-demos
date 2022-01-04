@@ -68,7 +68,10 @@ func main() {
 
 		wrpc.Handle("audioSource", func(w io.Writer, _ io.Reader) {
 			jsutil.ConsoleLog("1. worker")
-			wrpc.Go(w, nil, "generateChunks", "applyGain")
+			rr, _ := wrpc.Go("generateChunks", "applyGain")
+			if _, err := io.Copy(w, rr); err != nil {
+				panic(err)
+			}
 		})
 
 		wrpc.Handle("passthrough", func(w io.Writer, r io.Reader) {
@@ -123,14 +126,12 @@ const (
 )
 
 func startAudio() {
-	// Master tracks.
-	masterReader, masterWriter := io.Pipe()
-	wrpc.Go(masterWriter, nil, "audioSource", "passthrough")
+	// Master track reader.
+	r, _ := wrpc.Go("audioSource", "passthrough")
+	dr := textproto.NewReader(bufio.NewReader(r)).DotReader()
 
 	audioCtx := js.Global().Get("AudioContext").New()
 	player := js.Global().Get("PCMPlayer").New(audioCtx)
-
-	dr := textproto.NewReader(bufio.NewReader(masterReader)).DotReader()
 
 	forEachChunk(dr, func(chunk audio.Chunk) {
 		// TODO: It didn't make a difference if I sent
