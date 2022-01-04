@@ -16,8 +16,7 @@ import (
 
 func main() {
 	if jsutil.IsWorker() {
-		wrpc.Handle("echoBytes", func(w io.WriteCloser, r io.Reader) {
-			defer w.Close()
+		wrpc.Handle("echoBytes", func(w io.Writer, r io.Reader) {
 			if _, err := io.Copy(w, r); err != nil {
 				panic(err)
 			}

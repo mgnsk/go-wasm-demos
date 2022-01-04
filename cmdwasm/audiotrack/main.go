@@ -21,9 +21,8 @@ import (
 
 func main() {
 	if jsutil.IsWorker() {
-		wrpc.Handle("generateChunks", func(w io.WriteCloser, _ io.Reader) {
+		wrpc.Handle("generateChunks", func(w io.Writer, _ io.Reader) {
 			jsutil.ConsoleLog("2. worker")
-			defer w.Close()
 			writer := textproto.NewWriter(bufio.NewWriter(w))
 			defer writer.W.Flush()
 
@@ -49,9 +48,8 @@ func main() {
 			}
 		})
 
-		wrpc.Handle("applyGain", func(w io.WriteCloser, r io.Reader) {
+		wrpc.Handle("applyGain", func(w io.Writer, r io.Reader) {
 			jsutil.ConsoleLog("3. worker")
-			defer w.Close()
 			reader := textproto.NewReader(bufio.NewReader(r))
 			writer := textproto.NewWriter(bufio.NewWriter(w))
 			defer writer.W.Flush()
@@ -68,14 +66,13 @@ func main() {
 			})
 		})
 
-		wrpc.Handle("audioSource", func(w io.WriteCloser, _ io.Reader) {
+		wrpc.Handle("audioSource", func(w io.Writer, _ io.Reader) {
 			jsutil.ConsoleLog("1. worker")
 			wrpc.Go(w, nil, "generateChunks", "applyGain")
 		})
 
-		wrpc.Handle("passthrough", func(w io.WriteCloser, r io.Reader) {
+		wrpc.Handle("passthrough", func(w io.Writer, r io.Reader) {
 			jsutil.ConsoleLog("4. worker")
-			defer w.Close()
 			if n, err := io.Copy(w, r); err != nil {
 				panic(err)
 			} else if n == 0 {

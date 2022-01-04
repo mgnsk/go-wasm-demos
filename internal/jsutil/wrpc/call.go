@@ -11,25 +11,29 @@ import (
 
 // Call is a remote call that can be scheduled to a worker.
 type Call struct {
-	w io.WriteCloser
+	w io.Writer
 	r io.Reader
 
 	localWriter io.WriteCloser
 	localReader io.Reader
+	localDone   *MessagePort
 
 	remoteWriter *MessagePort
 	remoteReader *MessagePort
+	remoteDone   *MessagePort
 
 	call string
 }
 
 // NewCall creates a new wrpc call.
-func NewCall(w io.WriteCloser, r io.Reader, name string) Call {
-	c := Call{
+func NewCall(w io.Writer, r io.Reader, name string) *Call {
+	c := &Call{
 		w:    w,
 		r:    r,
 		call: name,
 	}
+
+	c.localDone, c.remoteDone = Pipe()
 
 	if p, ok := w.(*MessagePort); ok {
 		c.remoteWriter = p
@@ -49,47 +53,56 @@ func NewCall(w io.WriteCloser, r io.Reader, name string) Call {
 }
 
 // NewCallFromJS constructs a call from JS message.
-func NewCallFromJS(data js.Value) Call {
-	w := NewMessagePort(data.Get("writer"))
-
+func NewCallFromJS(data js.Value) *Call {
 	var r *MessagePort
 	if reader := data.Get("reader"); !reader.IsUndefined() {
 		r = NewMessagePort(reader)
 	}
 
-	return Call{
-		remoteWriter: w,
+	return &Call{
+		remoteWriter: NewMessagePort(data.Get("writer")),
 		remoteReader: r,
+		remoteDone:   NewMessagePort(data.Get("done")),
 		call:         data.Get("call").String(),
 	}
 }
 
 // ExecuteLocal executes the call locally.
-func (c Call) ExecuteLocal() {
+// It blocks until the call returns.
+func (c *Call) ExecuteLocal() {
 	call, ok := calls[c.call]
 	if !ok {
 		panic(fmt.Errorf("call '%s' not found", c.call))
 	}
+	defer c.remoteDone.Close()
+	defer c.remoteWriter.Close()
 	call(c.remoteWriter, c.remoteReader)
 }
 
 // ExecuteRemote executes the remote call.
-func (c Call) ExecuteRemote() {
+// It blocks until the call returns.
+func (c *Call) ExecuteRemote() {
 	if c.localReader != nil {
-		go mustCopy(c.w, c.localReader)
+		go mustCopyAll(c.w, c.localReader)
 	}
+
 	if c.localWriter != nil {
-		go mustCopy(c.localWriter, c.r)
+		go mustCopyAll(c.localWriter, c.r)
+	}
+
+	if _, err := c.localDone.ReadMessage(); err != io.EOF {
+		panic(err)
 	}
 }
 
 // JSMessage returns the JS message payload.
-func (c Call) JSMessage() (map[string]interface{}, []interface{}) {
+func (c *Call) JSMessage() (map[string]interface{}, []interface{}) {
 	messages := map[string]interface{}{
 		"call":   c.call,
 		"writer": c.remoteWriter.JSValue(),
+		"done":   c.remoteDone.JSValue(),
 	}
-	transferables := []interface{}{c.remoteWriter.JSValue()}
+	transferables := []interface{}{c.remoteWriter.JSValue(), c.remoteDone.JSValue()}
 	if c.remoteReader != nil {
 		messages["reader"] = c.remoteReader.JSValue()
 		if rr := c.remoteReader; rr != c.remoteWriter {
@@ -100,11 +113,15 @@ func (c Call) JSMessage() (map[string]interface{}, []interface{}) {
 	return messages, transferables
 }
 
-func mustCopy(dst io.WriteCloser, src io.Reader) {
-	defer dst.Close()
+func mustCopyAll(dst io.Writer, src io.Reader) {
 	if n, err := io.Copy(dst, src); err != nil {
 		panic(err)
 	} else if n == 0 {
 		panic("copyAndClose: zero copy")
+	}
+	if c, ok := dst.(io.Closer); ok {
+		if err := c.Close(); err != nil {
+			panic(err)
+		}
 	}
 }

@@ -18,7 +18,7 @@ import (
 
 func main() {
 	if jsutil.IsWorker() {
-		wrpc.Handle("serve", func(w io.WriteCloser, r io.Reader) {
+		wrpc.Handle("serve", func(w io.Writer, r io.Reader) {
 			mux := http.NewServeMux()
 			mux.HandleFunc("/hello", func(w http.ResponseWriter, _ *http.Request) {
 				fmt.Fprintf(w, "Hello world from server!")
@@ -77,15 +77,10 @@ type workerListener struct {
 	done chan struct{}
 }
 
-func newListener(w io.WriteCloser, r io.Reader) *workerListener {
+func newListener(w io.Writer, r io.Reader) *workerListener {
 	c1, c2 := net.Pipe()
-	go func() {
-		io.Copy(c1, r)
-	}()
-	go func() {
-		defer w.Close()
-		io.Copy(w, c1)
-	}()
+	go io.Copy(c1, r)
+	go io.Copy(w, c1)
 	return &workerListener{
 		conn: c2,
 		done: make(chan struct{}),

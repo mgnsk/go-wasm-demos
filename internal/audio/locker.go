@@ -24,56 +24,65 @@ func NewPriorityLocker(lowestPriority uint64) *PriorityLocker {
 	}
 }
 
-// GetLock registers a priority-assigned lock.
-func (l *PriorityLocker) GetLock(priority uint64) (lock, unlock func()) {
-	lock = func() {
-		var waiters []func()
-		l.internalMu.Lock()
-		// Get all waitgroups up to this priority included.
-		for i := atomic.LoadUint64(&l.lowestPriority); i <= priority; i++ {
-			wg, ok := l.waitgroups[i]
-			if !ok {
-				// Waitgroup doesn't exist yet, create it.
-				wg = &sync.WaitGroup{}
-				wg.Add(1)
-				l.waitgroups[i] = wg
-			}
-			waiters = append(waiters, wg.Wait)
-		}
-		l.internalMu.Unlock()
+// NewLock creates a priority-assigned lock. The returned locker
+// must only be locked and unlocked once.
+func (l *PriorityLocker) NewLock(priority uint64) sync.Locker {
+	return locker{
+		priority: priority,
+		pl:       l,
+	}
+}
 
-		// Wait for them.
-		for _, wait := range waiters {
-			wait()
-		}
+type locker struct {
+	priority uint64
+	pl       *PriorityLocker
+}
 
-		// It is safe to remove all lower waitgroups since all are done.
-		l.internalMu.Lock()
-		for pr := range l.waitgroups {
-			if pr <= priority {
-				delete(l.waitgroups, pr)
-			}
+func (l locker) Lock() {
+	var waiters []func()
+	l.pl.internalMu.Lock()
+	// Get all waitgroups up to this priority included.
+	for i := atomic.LoadUint64(&l.pl.lowestPriority); i <= l.priority; i++ {
+		wg, ok := l.pl.waitgroups[i]
+		if !ok {
+			// Waitgroup doesn't exist yet, create it.
+			wg = &sync.WaitGroup{}
+			wg.Add(1)
+			l.pl.waitgroups[i] = wg
 		}
-		l.internalMu.Unlock()
+		waiters = append(waiters, wg.Wait)
+	}
+	l.pl.internalMu.Unlock()
 
-		// Now lock the lock.
-		l.lock.Lock()
+	// Wait for them.
+	for _, wait := range waiters {
+		wait()
 	}
 
-	unlock = func() {
-		l.lock.Unlock()
-
-		l.internalMu.RLock()
-		// Unblock callers with higher priority.
-		l.waitgroups[priority].Done()
-		l.internalMu.RUnlock()
-
-		// The immediate next caller, increase lowestPriority as we have
-		// unlocked everything up to this index.
-		if priority == atomic.LoadUint64(&l.lowestPriority)+1 {
-			atomic.AddUint64(&l.lowestPriority, 1)
+	// It is safe to remove all lower waitgroups since all are done.
+	l.pl.internalMu.Lock()
+	for pr := range l.pl.waitgroups {
+		if pr <= l.priority {
+			delete(l.pl.waitgroups, pr)
 		}
 	}
+	l.pl.internalMu.Unlock()
 
-	return
+	// Now lock the lock.
+	l.pl.lock.Lock()
+}
+
+func (l locker) Unlock() {
+	l.pl.lock.Unlock()
+
+	l.pl.internalMu.RLock()
+	// Unblock callers with higher priority.
+	l.pl.waitgroups[l.priority].Done()
+	l.pl.internalMu.RUnlock()
+
+	// The immediate next caller, increase lowestPriority as we have
+	// unlocked everything up to this index.
+	if l.priority == atomic.LoadUint64(&l.pl.lowestPriority)+1 {
+		atomic.AddUint64(&l.pl.lowestPriority, 1)
+	}
 }

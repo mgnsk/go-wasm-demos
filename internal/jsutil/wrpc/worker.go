@@ -8,20 +8,20 @@ import (
 	"syscall/js"
 )
 
-// Worker is a browser thread.
+// Worker is a Web Worker wrapper.
 type Worker struct {
 	worker js.Value
 	port   *MessagePort
 }
 
-// Terminate the webworker.
-func (w *Worker) Terminate() {
+// Close the worker.
+func (w *Worker) Close() {
 	w.worker.Call("terminate")
 }
 
 // Call sends a remote call to be executed on the worker. Call returns when
 // the the worker receives the call.
-func (w *Worker) Call(call Call) error {
+func (w *Worker) Call(call *Call) error {
 	messages, transferables := call.JSMessage()
 
 	if err := w.port.WriteMessage(messages, transferables); err != nil {

@@ -30,10 +30,8 @@ func main() {
 	}
 }
 
-func stringGeneratorWorker(w io.WriteCloser, r io.Reader) {
+func stringGeneratorWorker(w io.Writer, r io.Reader) {
 	fmt.Println("stated stringGeneratorWorker")
-
-	defer w.Close()
 
 	// decode args
 	dec := gob.NewDecoder(r)
@@ -58,10 +56,8 @@ func stringGeneratorWorker(w io.WriteCloser, r io.Reader) {
 	}
 }
 
-func upperCaseWorker(w io.WriteCloser, r io.Reader) {
+func upperCaseWorker(w io.Writer, r io.Reader) {
 	fmt.Println("started upperCaseWorker")
-
-	defer w.Close()
 
 	scanner := bufio.NewScanner(r)
 	bufOut := bufio.NewWriter(w)
@@ -81,10 +77,8 @@ func upperCaseWorker(w io.WriteCloser, r io.Reader) {
 	}
 }
 
-func reverseWorker(w io.WriteCloser, r io.Reader) {
+func reverseWorker(w io.Writer, r io.Reader) {
 	fmt.Println("started reverseWorker")
-
-	defer w.Close()
 
 	scanner := bufio.NewScanner(r)
 	bufOut := bufio.NewWriter(w)

@@ -1,11 +1,8 @@
 package wrpc
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"io"
-	"os"
 	"runtime"
 	"sync"
 	"syscall/js"
@@ -107,12 +104,6 @@ func (p *MessagePort) Write(b []byte) (n int, err error) {
 	transferables := []interface{}{arr}
 
 	if err := p.WriteMessage(messages, transferables); err != nil {
-		if errors.Is(err, context.Canceled) {
-			return 0, io.ErrClosedPipe
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			return 0, os.ErrDeadlineExceeded
-		}
 		return 0, err
 	}
 
@@ -126,9 +117,6 @@ func (p *MessagePort) Close() error {
 		close(p.done)
 		p.value.Call("postMessage", map[string]interface{}{"__eof": true})
 	})
-	if p.err == io.ErrClosedPipe {
-		return p.err
-	}
 	return nil
 }
 

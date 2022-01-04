@@ -102,10 +102,10 @@ func (sink *OrderedSink) Append(chunk *Chunk) {
 	}
 
 	// lock forces the order of chunks to be sorted.
-	lock, unlock := sink.locker.GetLock(chunk.Index)
-	lock()
+	mu := sink.locker.NewLock(chunk.Index)
+	mu.Lock()
+	defer mu.Unlock()
 	sink.out <- chunk
-	unlock()
 }
 
 // OutputTo forwards all output to next sink.

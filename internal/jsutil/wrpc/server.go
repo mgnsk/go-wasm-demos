@@ -29,7 +29,7 @@ func ListenAndServe() error {
 		switch {
 		case !data.Get("call").IsUndefined():
 			call := NewCallFromJS(data)
-			if err := port.WriteMessage(map[string]interface{}{"received": true}, nil); err != nil {
+			if err := port.WriteMessage(map[string]interface{}{"__received": true}, nil); err != nil {
 				panic(err)
 			}
 			go call.ExecuteLocal()

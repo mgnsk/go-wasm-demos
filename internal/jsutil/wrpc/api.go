@@ -7,36 +7,49 @@ import (
 	"io"
 )
 
-var calls = map[string]func(io.WriteCloser, io.Reader){}
+// RemoteCall is a remote function that can be
+// called on a worked by its string name.
+type RemoteCall func(io.Writer, io.Reader)
+
+var calls = map[string]RemoteCall{}
 
 // Handle registers a remote call with name.
-func Handle(name string, call func(io.WriteCloser, io.Reader)) {
+func Handle(name string, call RemoteCall) {
 	calls[name] = call
 }
 
 // Go starts remote workers for each remote call and executes them in order by piping each
 // call's output to the next input and letting the last worker write directly to w.
-func Go(w io.WriteCloser, r io.Reader, callNames ...string) {
-	// start copiers only when all calls are initiated
-	cs := make([]Call, len(callNames))
+func Go(w io.Writer, r io.Reader, callNames ...string) {
+	routines := make([]*webroutine, len(callNames))
 	prevReader := r
 	for i, name := range callNames {
 		if i == len(callNames)-1 {
-			cs[i] = goOne(w, prevReader, name)
+			routines[i] = newWebRoutine(w, prevReader, name)
 		} else {
 			rc, wc := Pipe()
-			cs[i] = goOne(wc, prevReader, name)
+			routines[i] = newWebRoutine(wc, prevReader, name)
 			prevReader = rc
 		}
 	}
-	for _, c := range cs {
-		c.ExecuteRemote()
+	for _, rt := range routines {
+		go rt.ExecuteAndClose()
 	}
 }
 
-func goOne(w io.WriteCloser, r io.Reader, name string) Call {
+type webroutine struct {
+	worker *Worker
+	call   *Call
+}
+
+func (r *webroutine) ExecuteAndClose() {
+	defer r.worker.Close()
+	r.call.ExecuteRemote()
+}
+
+func newWebRoutine(w io.Writer, r io.Reader, name string) *webroutine {
 	if w == nil {
-		panic("Must have output")
+		panic("w must not be nil")
 	}
 
 	call := NewCall(w, r, name)
@@ -50,5 +63,8 @@ func goOne(w io.WriteCloser, r io.Reader, name string) Call {
 		panic(err)
 	}
 
-	return call
+	return &webroutine{
+		worker: worker,
+		call:   call,
+	}
 }
