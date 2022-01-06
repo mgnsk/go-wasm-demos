@@ -50,5 +50,5 @@ func browser() {
 	end := time.Since(start)
 	mps := (float64(len(b)) / end.Seconds()) / 1024 / 1024
 
-	jsutil.Dump("MB/s:", mps)
+	jsutil.ConsoleLog("MB/s:", mps)
 }

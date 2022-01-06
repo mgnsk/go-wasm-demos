@@ -34,7 +34,7 @@ func main() {
 			tb := audio.NewTimeBuffer(bufferDuration)
 			dur := (float64(chunkSize) * float64(time.Second)) / (2 * 44100)
 			chunkDuration := time.Duration(dur)
-			jsutil.Dump("Chunk duration:", chunkDuration)
+			jsutil.ConsoleLog("Chunk duration:", chunkDuration)
 
 			dw := writer.DotWriter()
 			defer dw.Close()

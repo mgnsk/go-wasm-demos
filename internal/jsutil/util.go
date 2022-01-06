@@ -10,8 +10,6 @@ import (
 	"runtime"
 	"syscall/js"
 	"unsafe"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 // IsWorker returns whether we are running in a webworker.
@@ -28,22 +26,6 @@ func CreateURLObject(data interface{}, mime string) js.Value {
 // ConsoleLog console.log
 func ConsoleLog(args ...interface{}) {
 	js.Global().Get("console").Call("log", args...)
-}
-
-// Dump deep dumps to console.
-func Dump(args ...interface{}) {
-	ConsoleLog(spew.Sdump(args...))
-}
-
-// Sdump deep prints to string.
-func Sdump(args ...interface{}) string {
-	return spew.Sdump(args...)
-}
-
-// AlertPanic alerts and panics.
-func AlertPanic(v interface{}) {
-	js.Global().Call("alert", v)
-	panic(v)
 }
 
 // SliceToByteSlice creates a slice of bytes from numeric slices.

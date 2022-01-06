@@ -94,7 +94,7 @@ func main() {
 
 	gl, err := webgl.NewGL(canvas)
 	if err != nil {
-		jsutil.AlertPanic(err)
+		panic(fmt.Errorf("error creating GL context"))
 	}
 
 	// WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)

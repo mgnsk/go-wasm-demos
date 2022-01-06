@@ -9,6 +9,8 @@ import (
 
 // RemoteCall is a remote function that can be
 // called on a worked by its string name.
+//
+// When RemoteCall returns, the underlying Writer is closed.
 type RemoteCall func(io.Writer, io.Reader)
 
 var calls = map[string]RemoteCall{}
@@ -20,7 +22,7 @@ func Handle(name string, call RemoteCall) {
 
 // Go starts remote workers for each remote call and executes them in order by piping each
 // call's output to the next input and letting the last worker write back to caller.
-// The WriteCloser is piped to call's Reader and the Reader is piped from call's Writer.
+// The returned WriteCloser is piped to call's Reader and the Reader is piped from call's Writer.
 func Go(callNames ...string) (io.Reader, io.WriteCloser) {
 	remoteReader, localWriter := Pipe()
 	localReader, remoteWriter := Pipe()
@@ -52,11 +54,13 @@ func Go(callNames ...string) (io.Reader, io.WriteCloser) {
 	}
 
 	for i, call := range calls {
+		call.BeginRemote()
 		worker := workers[i]
-		call := call
 		go func() {
 			defer worker.Close()
-			call.ExecuteRemote()
+			if err := worker.Ping(); err != nil {
+				panic(err)
+			}
 		}()
 	}
 

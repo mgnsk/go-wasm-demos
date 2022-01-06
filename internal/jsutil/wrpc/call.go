@@ -9,7 +9,7 @@ import (
 	"syscall/js"
 )
 
-// Call is a remote call that can be scheduled to a worker.
+// Call is a remote call that can be executed on a worker.
 type Call struct {
 	w io.Writer
 	r io.Reader
@@ -20,7 +20,6 @@ type Call struct {
 
 	remoteWriter *MessagePort
 	remoteReader *MessagePort
-	remoteDone   *MessagePort
 
 	call string
 }
@@ -32,8 +31,6 @@ func NewCall(w io.Writer, r io.Reader, name string) *Call {
 		r:    r,
 		call: name,
 	}
-
-	c.localDone, c.remoteDone = Pipe()
 
 	if p, ok := w.(*MessagePort); ok {
 		c.remoteWriter = p
@@ -52,7 +49,7 @@ func NewCall(w io.Writer, r io.Reader, name string) *Call {
 	return c
 }
 
-// NewCallFromJS constructs a call from JS message.
+// NewCallFromJS creates a call from a JS message.
 func NewCallFromJS(data js.Value) *Call {
 	var r *MessagePort
 	if reader := data.Get("reader"); !reader.IsUndefined() {
@@ -62,36 +59,28 @@ func NewCallFromJS(data js.Value) *Call {
 	return &Call{
 		remoteWriter: NewMessagePort(data.Get("writer")),
 		remoteReader: r,
-		remoteDone:   NewMessagePort(data.Get("done")),
 		call:         data.Get("call").String(),
 	}
 }
 
-// ExecuteLocal executes the call locally.
-// It blocks until the call returns.
-func (c *Call) ExecuteLocal() {
+// Execute the call locally.
+func (c *Call) Execute() {
 	call, ok := calls[c.call]
 	if !ok {
 		panic(fmt.Errorf("call '%s' not found", c.call))
 	}
-	defer c.remoteDone.Close()
 	defer c.remoteWriter.Close()
 	call(c.remoteWriter, c.remoteReader)
 }
 
-// ExecuteRemote executes the remote call.
-// It blocks until the call returns.
-func (c *Call) ExecuteRemote() {
+// BeginRemote begins piping data into the call's input.
+func (c *Call) BeginRemote() {
 	if c.localReader != nil {
 		go mustCopyAll(c.w, c.localReader)
 	}
 
 	if c.localWriter != nil {
 		go mustCopyAll(c.localWriter, c.r)
-	}
-
-	if _, err := c.localDone.ReadMessage(); err != io.EOF {
-		panic(err)
 	}
 }
 
@@ -100,9 +89,8 @@ func (c *Call) JSMessage() (map[string]interface{}, []interface{}) {
 	messages := map[string]interface{}{
 		"call":   c.call,
 		"writer": c.remoteWriter.JSValue(),
-		"done":   c.remoteDone.JSValue(),
 	}
-	transferables := []interface{}{c.remoteWriter.JSValue(), c.remoteDone.JSValue()}
+	transferables := []interface{}{c.remoteWriter.JSValue()}
 	if c.remoteReader != nil {
 		messages["reader"] = c.remoteReader.JSValue()
 		if rr := c.remoteReader; rr != c.remoteWriter {

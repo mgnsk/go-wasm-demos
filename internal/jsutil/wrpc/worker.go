@@ -19,8 +19,9 @@ func (w *Worker) Close() {
 	w.worker.Call("terminate")
 }
 
-// Call sends a remote call to be executed on the worker. Call returns when
-// the the worker receives the call.
+// Call a remote call on the worker. Call returns as soon as the worker
+// receives the call. Since the worker is single-threaded, Ping can be
+// used to wait for the current call.
 func (w *Worker) Call(call *Call) error {
 	messages, transferables := call.JSMessage()
 
@@ -31,6 +32,17 @@ func (w *Worker) Call(call *Call) error {
 		return fmt.Errorf("error waiting for call to be received: %w", err)
 	}
 
+	return nil
+}
+
+// Ping the worker. If the worker is busy, it blocks until the worker responds.
+func (w *Worker) Ping() error {
+	if err := w.port.WriteMessage(map[string]interface{}{"ping": true}, nil); err != nil {
+		return fmt.Errorf("error pinging worker: %w", err)
+	}
+	if _, err := w.port.ReadMessage(); err != nil {
+		return fmt.Errorf("error waiting for worker ping reply: %w", err)
+	}
 	return nil
 }
 
