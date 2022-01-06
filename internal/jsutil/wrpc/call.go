@@ -73,7 +73,7 @@ func (c *Call) Execute() {
 	call(c.remoteWriter, c.remoteReader)
 }
 
-// BeginRemote begins piping data into the call's input.
+// BeginRemote begins piping data to and from the call.
 func (c *Call) BeginRemote() {
 	if c.localReader != nil {
 		go mustCopyAll(c.w, c.localReader)

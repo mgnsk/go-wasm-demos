@@ -60,7 +60,7 @@ func (p *MessagePort) JSValue() js.Value {
 	return p.value
 }
 
-// Read reads a single message or error from the port.
+// Read a single message or error from the port.
 func (p *MessagePort) ReadMessage() (js.Value, error) {
 	select {
 	case <-p.done:
@@ -71,7 +71,8 @@ func (p *MessagePort) ReadMessage() (js.Value, error) {
 	}
 }
 
-// Write is a blocking postMessage call.
+// WriteMessage writes a messages into the port.
+// It blocks until the remote side reads the message.
 func (p *MessagePort) WriteMessage(messages map[string]interface{}, transferables []interface{}) error {
 	p.value.Call("postMessage", messages, transferables)
 	select {

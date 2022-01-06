@@ -11,7 +11,7 @@ import (
 )
 
 // ListenAndServe runs the wrpc server on worker.
-// The worker is single-threaded, the server blocks.
+// The worker is single-threaded, the server blocks
 // while a call is executing.
 func ListenAndServe() error {
 	if !jsutil.IsWorker() {
