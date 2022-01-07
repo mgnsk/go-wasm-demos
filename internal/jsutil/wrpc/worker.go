@@ -23,7 +23,7 @@ func (w *Worker) Close() {
 // Call a remote call on the worker. Call returns as soon as the worker
 // receives the call. Since the worker is single-threaded, Ping can be
 // used to wait for the current call.
-func (w *Worker) Call(call *Call) error {
+func (w *Worker) Call(call Call) error {
 	messages, transferables := call.JSMessage()
 
 	if err := w.port.WriteMessage(messages, transferables); err != nil {

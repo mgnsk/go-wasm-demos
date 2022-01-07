@@ -12,46 +12,46 @@ import (
 type Call struct {
 	w    *MessagePort
 	r    *MessagePort
-	call string
+	name string
 }
 
 // NewCall creates a new wrpc call.
-func NewCall(w, r *MessagePort, name string) *Call {
-	return &Call{
+func NewCall(w, r *MessagePort, name string) Call {
+	return Call{
 		w:    w,
 		r:    r,
-		call: name,
+		name: name,
 	}
 }
 
 // NewCallFromJS creates a call from a JS message.
-func NewCallFromJS(data js.Value) *Call {
+func NewCallFromJS(data js.Value) Call {
 	var r *MessagePort
 	if reader := data.Get("reader"); !reader.IsUndefined() {
 		r = NewMessagePort(reader)
 	}
 
-	return &Call{
+	return Call{
 		w:    NewMessagePort(data.Get("writer")),
 		r:    r,
-		call: data.Get("call").String(),
+		name: data.Get("call").String(),
 	}
 }
 
 // Execute the call locally.
-func (c *Call) Execute() {
-	call, ok := calls[c.call]
+func (c Call) Execute() {
+	call, ok := calls[c.name]
 	if !ok {
-		panic(fmt.Errorf("call '%s' not found", c.call))
+		panic(fmt.Errorf("call '%s' not found", c.name))
 	}
 	defer c.w.Close()
 	call(c.w, c.r)
 }
 
 // JSMessage returns the JS message payload.
-func (c *Call) JSMessage() (map[string]interface{}, []interface{}) {
+func (c Call) JSMessage() (map[string]interface{}, []interface{}) {
 	messages := map[string]interface{}{
-		"call":   c.call,
+		"call":   c.name,
 		"writer": c.w.JSValue(),
 	}
 	transferables := []interface{}{c.w.JSValue()}

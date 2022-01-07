@@ -30,7 +30,7 @@ func Go(callNames ...string) (io.Reader, io.WriteCloser) {
 	remoteReader, localWriter := Pipe()
 	localReader, remoteWriter := Pipe()
 
-	calls := make([]*Call, len(callNames))
+	calls := make([]Call, len(callNames))
 	var prevReader *MessagePort = remoteReader
 	for i, name := range callNames {
 		if i == len(callNames)-1 {
