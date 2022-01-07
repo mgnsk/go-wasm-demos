@@ -31,7 +31,7 @@ func Go(callNames ...string) (io.Reader, io.WriteCloser) {
 	localReader, remoteWriter := Pipe()
 
 	calls := make([]*Call, len(callNames))
-	var prevReader io.Reader = remoteReader
+	var prevReader *MessagePort = remoteReader
 	for i, name := range callNames {
 		if i == len(callNames)-1 {
 			calls[i] = NewCall(remoteWriter, prevReader, name)
@@ -53,10 +53,6 @@ func Go(callNames ...string) (io.Reader, io.WriteCloser) {
 				panic(err)
 			}
 		}()
-	}
-
-	for _, call := range calls {
-		call.BeginCopy()
 	}
 
 	return localReader, localWriter
