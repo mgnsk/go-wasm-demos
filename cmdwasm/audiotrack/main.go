@@ -145,9 +145,9 @@ func startAudio() {
 			right[i] = chunk.Samples[j+1]
 		}
 
-		arrLeft := array.NewArrayBufferFromSlice(left)
-		arrRight := array.NewArrayBufferFromSlice(right)
+		arrLeft := array.NewTypedArrayFromSlice(left)
+		arrRight := array.NewTypedArrayFromSlice(right)
 
-		player.Call("playNext", arrLeft.Float32Array().JSValue(), arrRight.Float32Array().JSValue())
+		player.Call("playNext", arrLeft.JSValue(), arrRight.JSValue())
 	})
 }

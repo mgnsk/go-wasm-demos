@@ -6,37 +6,103 @@ package array
 import (
 	"fmt"
 	"syscall/js"
+
+	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
+)
+
+// CopyBytes copies bytes from the raw ArrayBuffer.
+func CopyBytes(ab js.Value) []byte {
+	byteLength := ab.Get("byteLength").Int()
+	if byteLength == 0 {
+		return nil
+	}
+
+	buf := make([]byte, byteLength)
+	view := js.Global().Get("Uint8Array").New(ab)
+
+	if n := js.CopyBytesToGo(buf, view); n != len(buf) {
+		panic("CopyBytesToGo: invalid copied length")
+	}
+
+	return buf
+}
+
+// Type if a type of array.
+type Type string
+
+func (t Type) String() string {
+	return string(t)
+}
+
+// Array types.
+const (
+	Int8Array      Type = "Int8Array"
+	Int16Array     Type = "Int16Array"
+	Int32Array     Type = "Int32Array"
+	BigInt64Array  Type = "BigInt64Array"
+	Uint8Array     Type = "Uint8Array"
+	Uint16Array    Type = "Uint16Array"
+	Uint32Array    Type = "Uint32Array"
+	BigUint64Array Type = "BigUint64Array"
+	Float32Array   Type = "Float32Array"
+	Float64Array   Type = "Float64Array"
 )
 
 // TypedArray is a JS TypedArray.
 type TypedArray js.Value
 
-// NewTypedArrayFromSlice creates a new read-only TypedArray.
-func NewTypedArrayFromSlice(s interface{}) TypedArray {
-	ab := NewArrayBufferFromSlice(s)
-	switch s.(type) {
-	case []int8:
-		return ab.Int8Array()
-	case []int16:
-		return ab.Int16Array()
-	case []int32:
-		return ab.Int32Array()
-	case []int64:
-		return ab.BigInt64Array()
-	case []uint8:
-		return ab.Uint8Array()
-	case []uint16:
-		return ab.Uint16Array()
-	case []uint32:
-		return ab.Uint32Array()
-	case []uint64:
-		return ab.BigUint64Array()
-	case []float32:
-		return ab.Float32Array()
-	case []float64:
-		return ab.Float64Array()
+// New wraps an ArrayBuffer with TypedArray.
+func New(typ Type, buf js.Value) TypedArray {
+	switch typ {
+	case Int8Array:
+	case Int16Array:
+	case Int32Array:
+	case BigInt64Array:
+	case Uint8Array:
+	case Uint16Array:
+	case Uint32Array:
+	case BigUint64Array:
+	case Float32Array:
+	case Float64Array:
 	default:
-		panic(fmt.Errorf("NewTypedArrayFromSlice: invalid type '%T'", s))
+		panic(fmt.Errorf("New: invalid type '%s'", typ))
+	}
+	return TypedArray(js.Global().Get(typ.String()).New(buf))
+}
+
+// NewTypedArrayFromSlice creates a new read-only TypedArray.
+func NewTypedArrayFromSlice(v interface{}) TypedArray {
+	b := jsutil.SliceToByteSlice(v)
+	buf := js.Global().Get("ArrayBuffer").New(len(b))
+	view := New(Uint8Array, buf)
+
+	if n := js.CopyBytesToJS(view.JSValue(), b); n != len(b) {
+		panic(fmt.Errorf("NewArrayBufferFromSlice: copied: %d, expected: %d", n, len(b)))
+	}
+
+	switch v.(type) {
+	case []int8:
+		return New(Int8Array, buf)
+	case []int16:
+		return New(Int16Array, buf)
+	case []int32:
+		return New(Int32Array, buf)
+	case []int64:
+		return New(BigInt64Array, buf)
+	case []uint8:
+		return view
+	case []uint16:
+		return New(Uint16Array, buf)
+	case []uint32:
+		return New(Uint32Array, buf)
+	case []uint64:
+		return New(BigUint64Array, buf)
+	case []float32:
+		return New(Float32Array, buf)
+	case []float64:
+		return New(Float64Array, buf)
+	default:
+		panic(fmt.Errorf("NewTypedArrayFromSlice: invalid type '%T'", v))
 	}
 }
 
@@ -45,14 +111,24 @@ func (a TypedArray) JSValue() js.Value {
 	return js.Value(a)
 }
 
-// ArrayBuffer returns the underlying ArrayBuffer.
-func (a TypedArray) ArrayBuffer() ArrayBuffer {
-	return ArrayBuffer(a.JSValue().Get("buffer"))
+// Buffer returns the underlying ArrayBuffer.
+func (a TypedArray) Buffer() js.Value {
+	return a.JSValue().Get("buffer")
+}
+
+// Bytes returns bytes from the underlying ArrayBuffer.
+func (a TypedArray) Bytes() []byte {
+	return CopyBytes(a.Buffer())
 }
 
 // Len returns the length of the array.
 func (a TypedArray) Len() int {
 	return a.JSValue().Get("length").Int()
+}
+
+// ByteLength returns the byte length of the array.
+func (a TypedArray) ByteLength() int {
+	return a.JSValue().Get("byteLength").Int()
 }
 
 // Type returns the type of buffer.

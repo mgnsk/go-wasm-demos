@@ -95,14 +95,14 @@ func (p *MessagePort) Read(b []byte) (n int, err error) {
 		return 0, fmt.Errorf("expected an ArrayBuffer message")
 	}
 
-	return copy(b, array.ArrayBuffer(arr).Bytes()), nil
+	return copy(b, array.CopyBytes(arr)), nil
 }
 
 // Write a byte array message into the conn.
 func (p *MessagePort) Write(b []byte) (n int, err error) {
-	arr := array.NewArrayBufferFromSlice(b)
-	messages := map[string]interface{}{"arr": arr.JSValue()}
-	tx := []interface{}{arr.JSValue()}
+	arr := array.NewTypedArrayFromSlice(b).Buffer()
+	messages := map[string]interface{}{"arr": arr}
+	tx := []interface{}{arr}
 
 	if err := p.WriteMessage(messages, tx); err != nil {
 		return 0, err
