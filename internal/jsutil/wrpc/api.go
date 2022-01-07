@@ -28,37 +28,29 @@ func Handle(name string, call RemoteCall) {
 // the returned Reader is piped from the last call's Writer.
 func Go(callNames ...string) (io.Reader, io.WriteCloser) {
 	remoteReader, localWriter := Pipe()
-	localReader, remoteWriter := Pipe()
 
-	calls := make([]Call, len(callNames))
-	var prevReader *MessagePort = remoteReader
-	for i, name := range callNames {
-		if i == len(callNames)-1 {
-			calls[i] = NewCall(remoteWriter, prevReader, name)
-		} else {
-			rc, wc := Pipe()
-			calls[i] = NewCall(wc, prevReader, name)
-			prevReader = rc
-		}
-	}
+	for _, name := range callNames {
+		p1, p2 := Pipe()
+		call := NewCall(p1, remoteReader, name)
+		remoteReader = p2
 
-	for _, call := range calls {
-		worker := workerPool.Get().(*Worker)
+		worker := pool.Get().(*Worker)
 		if err := worker.Call(call); err != nil {
 			panic(err)
 		}
+
 		go func() {
-			defer workerPool.Put(worker)
+			defer pool.Put(worker)
 			if err := worker.Ping(); err != nil {
 				panic(err)
 			}
 		}()
 	}
 
-	return localReader, localWriter
+	return remoteReader, localWriter
 }
 
-var workerPool = sync.Pool{
+var pool = sync.Pool{
 	New: func() interface{} {
 		worker, err := NewWorker("index.js")
 		if err != nil {

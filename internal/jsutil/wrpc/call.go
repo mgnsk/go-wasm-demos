@@ -10,31 +10,31 @@ import (
 
 // Call is a remote call that can be executed on a worker.
 type Call struct {
-	w    *MessagePort
-	r    *MessagePort
-	name string
+	output *MessagePort
+	input  *MessagePort
+	name   string
 }
 
 // NewCall creates a new wrpc call.
-func NewCall(w, r *MessagePort, name string) Call {
+func NewCall(output, input *MessagePort, name string) Call {
 	return Call{
-		w:    w,
-		r:    r,
-		name: name,
+		output: output,
+		input:  input,
+		name:   name,
 	}
 }
 
 // NewCallFromJS creates a call from a JS message.
 func NewCallFromJS(data js.Value) Call {
 	var r *MessagePort
-	if reader := data.Get("reader"); !reader.IsUndefined() {
+	if reader := data.Get("input"); !reader.IsUndefined() {
 		r = NewMessagePort(reader)
 	}
 
 	return Call{
-		w:    NewMessagePort(data.Get("writer")),
-		r:    r,
-		name: data.Get("call").String(),
+		output: NewMessagePort(data.Get("output")),
+		input:  r,
+		name:   data.Get("call").String(),
 	}
 }
 
@@ -44,22 +44,22 @@ func (c Call) Execute() {
 	if !ok {
 		panic(fmt.Errorf("call '%s' not found", c.name))
 	}
-	defer c.w.Close()
-	call(c.w, c.r)
+	defer c.output.Close()
+	call(c.output, c.input)
 }
 
 // JSMessage returns the JS message payload.
 func (c Call) JSMessage() (map[string]interface{}, []interface{}) {
 	messages := map[string]interface{}{
 		"call":   c.name,
-		"writer": c.w.JSValue(),
+		"output": c.output.JSValue(),
 	}
-	transferables := []interface{}{c.w.JSValue()}
-	if c.r != nil {
-		messages["reader"] = c.r.JSValue()
-		if c.r != c.w {
+	transferables := []interface{}{c.output.JSValue()}
+	if c.input != nil {
+		messages["input"] = c.input.JSValue()
+		if c.input != c.output {
 			// Don't sent duplicate conn.
-			transferables = append(transferables, c.r.JSValue())
+			transferables = append(transferables, c.input.JSValue())
 		}
 	}
 	return messages, transferables

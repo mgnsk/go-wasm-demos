@@ -83,7 +83,7 @@ func (p *MessagePort) WriteMessage(messages map[string]interface{}, transferable
 	}
 }
 
-// Read a byte array message from the conn.
+// Read a byte array message from the port.
 func (p *MessagePort) Read(b []byte) (n int, err error) {
 	msg, err := p.ReadMessage()
 	if err != nil {
@@ -98,7 +98,7 @@ func (p *MessagePort) Read(b []byte) (n int, err error) {
 	return copy(b, array.CopyBytes(arr)), nil
 }
 
-// Write a byte array message into the conn.
+// Write a byte array message into the port.
 func (p *MessagePort) Write(b []byte) (n int, err error) {
 	arr := array.NewTypedArrayFromSlice(b).Buffer()
 	messages := map[string]interface{}{"arr": arr}
