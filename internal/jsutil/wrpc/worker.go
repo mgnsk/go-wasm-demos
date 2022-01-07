@@ -5,6 +5,7 @@ package wrpc
 
 import (
 	"fmt"
+	"runtime"
 	"syscall/js"
 )
 
@@ -59,6 +60,10 @@ func NewWorker(url string) (*Worker, error) {
 	if _, err := newWorker.port.ReadMessage(); err != nil {
 		return nil, fmt.Errorf("error waiting for worker to become ready: %w", err)
 	}
+
+	runtime.SetFinalizer(newWorker, func(w interface{}) {
+		w.(*Worker).Close()
+	})
 
 	return newWorker, nil
 }

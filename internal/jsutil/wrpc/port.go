@@ -100,11 +100,11 @@ func (p *MessagePort) Read(b []byte) (n int, err error) {
 
 // Write a byte array message into the conn.
 func (p *MessagePort) Write(b []byte) (n int, err error) {
-	arr := array.NewArrayBufferFromSlice(b).JSValue()
-	messages := map[string]interface{}{"arr": arr}
-	transferables := []interface{}{arr}
+	arr := array.NewArrayBufferFromSlice(b)
+	messages := map[string]interface{}{"arr": arr.JSValue()}
+	tx := []interface{}{arr.JSValue()}
 
-	if err := p.WriteMessage(messages, transferables); err != nil {
+	if err := p.WriteMessage(messages, tx); err != nil {
 		return 0, err
 	}
 

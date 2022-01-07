@@ -76,23 +76,22 @@ func upperCaseWorker(w io.Writer, r io.Reader) {
 	}
 }
 
+func rev(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
+
 func reverseWorker(w io.Writer, r io.Reader) {
 	fmt.Println("started reverseWorker")
 
 	scanner := bufio.NewScanner(r)
 	bufOut := bufio.NewWriter(w)
-	defer bufOut.Flush()
-
-	reverse := func(s string) string {
-		runes := []rune(s)
-		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-			runes[i], runes[j] = runes[j], runes[i]
-		}
-		return string(runes)
-	}
 
 	for scanner.Scan() {
-		reversed := reverse(scanner.Text()) + "\n"
+		reversed := rev(scanner.Text()) + "\n"
 		if n, err := bufOut.WriteString(reversed); err != nil {
 			panic(err)
 		} else if n == 0 {
@@ -101,6 +100,10 @@ func reverseWorker(w io.Writer, r io.Reader) {
 	}
 
 	if err := scanner.Err(); err != nil {
+		panic(err)
+	}
+
+	if err := bufOut.Flush(); err != nil {
 		panic(err)
 	}
 }

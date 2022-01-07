@@ -5,6 +5,7 @@ package wrpc
 
 import (
 	"io"
+	"sync"
 )
 
 // RemoteCall is a remote function that can be
@@ -41,30 +42,32 @@ func Go(callNames ...string) (io.Reader, io.WriteCloser) {
 		}
 	}
 
-	workers := make([]*Worker, len(calls))
-	for i, call := range calls {
-		worker, err := NewWorker("index.js")
-		if err != nil {
-			panic(err)
-		}
-
+	for _, call := range calls {
+		worker := workerPool.Get().(*Worker)
 		if err := worker.Call(call); err != nil {
 			panic(err)
 		}
-
-		workers[i] = worker
-	}
-
-	for i, call := range calls {
-		call.BeginRemote()
-		worker := workers[i]
 		go func() {
-			defer worker.Close()
+			defer workerPool.Put(worker)
 			if err := worker.Ping(); err != nil {
 				panic(err)
 			}
 		}()
 	}
 
+	for _, call := range calls {
+		call.BeginCopy()
+	}
+
 	return localReader, localWriter
+}
+
+var workerPool = sync.Pool{
+	New: func() interface{} {
+		worker, err := NewWorker("index.js")
+		if err != nil {
+			panic(err)
+		}
+		return worker
+	},
 }

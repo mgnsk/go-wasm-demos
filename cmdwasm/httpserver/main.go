@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
@@ -25,8 +26,9 @@ func main() {
 		done := make(chan struct{})
 		conns := make(chan net.Conn)
 		wrpc.Handle("serve", func(w io.Writer, r io.Reader) {
-			conns <- combine(w, r)
-			<-done
+			c, done := combine(w, r)
+			conns <- c
+			done()
 		})
 
 		s := &http.Server{
@@ -60,11 +62,9 @@ func browser() {
 		Timeout: time.Second * 3,
 		Transport: &http.Transport{
 			Dial: func(_, _ string) (net.Conn, error) {
-				c1, c2 := net.Pipe()
 				r, w := wrpc.Go("serve")
-				go io.Copy(c1, r)
-				go io.Copy(w, c1)
-				return c2, nil
+				c, _ := combine(w, r)
+				return c, nil
 			},
 		},
 	}
@@ -88,11 +88,27 @@ type workerListener struct {
 	done  chan struct{}
 }
 
-func combine(w io.Writer, r io.Reader) net.Conn {
+func combine(w io.Writer, r io.Reader) (conn net.Conn, done func()) {
 	c1, c2 := net.Pipe()
-	go io.Copy(c1, r)
-	go io.Copy(w, c1)
-	return c2
+	wg := &sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if _, err := io.Copy(c1, r); err != nil {
+			panic(err)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if _, err := io.Copy(w, c1); err != nil {
+			panic(err)
+		}
+	}()
+
+	return c2, wg.Wait
 }
 
 func newListener(conns <-chan net.Conn) *workerListener {

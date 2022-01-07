@@ -16,7 +16,6 @@ type Call struct {
 
 	localWriter io.WriteCloser
 	localReader io.Reader
-	localDone   *MessagePort
 
 	remoteWriter *MessagePort
 	remoteReader *MessagePort
@@ -73,8 +72,9 @@ func (c *Call) Execute() {
 	call(c.remoteWriter, c.remoteReader)
 }
 
-// BeginRemote begins piping data to and from the call.
-func (c *Call) BeginRemote() {
+// BeginCopy begins piping data to and from the call
+// if the call uses an arbitrary reader and writer.
+func (c *Call) BeginCopy() {
 	if c.localReader != nil {
 		go mustCopyAll(c.w, c.localReader)
 	}
