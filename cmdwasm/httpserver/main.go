@@ -26,9 +26,9 @@ func main() {
 		done := make(chan struct{})
 		conns := make(chan net.Conn)
 		wrpc.Handle("serve", func(w io.Writer, r io.Reader) {
-			c, done := combine(w, r)
+			c := newPortConn(w, r)
 			conns <- c
-			done()
+			<-c.Done()
 		})
 
 		s := &http.Server{
@@ -63,8 +63,7 @@ func browser() {
 		Transport: &http.Transport{
 			Dial: func(_, _ string) (net.Conn, error) {
 				r, w := wrpc.Go("serve")
-				c, _ := combine(w, r)
-				return c, nil
+				return newPortConn(w, r), nil
 			},
 		},
 	}
@@ -83,32 +82,73 @@ func browser() {
 	fmt.Println(string(body))
 }
 
+type workerAddr struct{}
+
+func (a workerAddr) Network() string {
+	return "worker"
+}
+
+func (a workerAddr) String() string {
+	return ""
+}
+
+type portConn struct {
+	w    io.Writer
+	r    io.Reader
+	once sync.Once
+	done chan struct{}
+}
+
+var _ net.Conn = &portConn{}
+
+func newPortConn(w io.Writer, r io.Reader) *portConn {
+	return &portConn{
+		w:    w,
+		r:    r,
+		done: make(chan struct{}),
+	}
+}
+
+func (c *portConn) Done() <-chan struct{} {
+	return c.done
+}
+
+func (c *portConn) Read(b []byte) (int, error) {
+	return c.r.Read(b)
+}
+
+func (c *portConn) Write(b []byte) (int, error) {
+	return c.w.Write(b)
+}
+
+func (c *portConn) Close() error {
+	c.once.Do(func() { close(c.done) })
+	return nil
+}
+
+func (c *portConn) LocalAddr() net.Addr {
+	return workerAddr{}
+}
+
+func (c *portConn) RemoteAddr() net.Addr {
+	return workerAddr{}
+}
+
+func (c *portConn) SetDeadline(time.Time) error {
+	return nil
+}
+
+func (c *portConn) SetReadDeadline(time.Time) error {
+	return nil
+}
+
+func (c *portConn) SetWriteDeadline(time.Time) error {
+	return nil
+}
+
 type workerListener struct {
 	conns <-chan net.Conn
 	done  chan struct{}
-}
-
-func combine(w io.Writer, r io.Reader) (conn net.Conn, done func()) {
-	c1, c2 := net.Pipe()
-	wg := &sync.WaitGroup{}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if _, err := io.Copy(c1, r); err != nil {
-			panic(err)
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if _, err := io.Copy(w, c1); err != nil {
-			panic(err)
-		}
-	}()
-
-	return c2, wg.Wait
 }
 
 func newListener(conns <-chan net.Conn) *workerListener {
