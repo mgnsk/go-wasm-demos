@@ -29,20 +29,14 @@ func (w *Worker) Call(call Call) error {
 	if err := w.port.WriteMessage(messages, transferables); err != nil {
 		return fmt.Errorf("error sending call: %w", err)
 	}
-	if _, err := w.port.ReadMessage(); err != nil {
-		return fmt.Errorf("error waiting for call to be received: %w", err)
-	}
 
 	return nil
 }
 
 // Ping the worker. If the worker is busy, it blocks until the worker responds.
 func (w *Worker) Ping() error {
-	if err := w.port.WriteMessage(map[string]interface{}{"ping": true}, nil); err != nil {
+	if err := w.port.WriteMessage(map[string]interface{}{"__ping": true}, nil); err != nil {
 		return fmt.Errorf("error pinging worker: %w", err)
-	}
-	if _, err := w.port.ReadMessage(); err != nil {
-		return fmt.Errorf("error waiting for worker ping reply: %w", err)
 	}
 	return nil
 }

@@ -32,17 +32,8 @@ func ListenAndServe() error {
 		}
 		switch {
 		case !data.Get("call").IsUndefined():
-			call := NewCallFromJS(data)
-			// Notify the caller to start writing input. We have established
-			// an event listener for the received input port.
-			if err := port.WriteMessage(map[string]interface{}{"__received": true}, nil); err != nil {
-				panic(err)
-			}
-			call.Execute()
-		case !data.Get("ping").IsUndefined():
-			if err := port.WriteMessage(map[string]interface{}{"ping": true}, nil); err != nil {
-				panic(err)
-			}
+			NewCallFromJS(data).Execute()
+		case !data.Get("__ping").IsUndefined():
 		default:
 			jsutil.ConsoleLog("server: invalid message", data)
 		}
