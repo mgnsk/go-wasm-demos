@@ -5,7 +5,6 @@ package webgl
 
 import (
 	"syscall/js"
-	"unsafe"
 
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
@@ -30,7 +29,6 @@ type GLTypes struct {
 	Triangles          GLType
 	UnsignedShort      GLType
 	UnsignedByte       GLType
-	LEqual             GLType
 	LineLoop           GLType
 	CompileStatus      GLType
 	LinkStatus         GLType
@@ -60,7 +58,7 @@ type GLTypes struct {
 	TextureMinFilter   GLType
 	TextureMagFilter   GLType
 	Nearest            GLType
-	Lequal             GLType
+	LEqual             GLType
 }
 
 // GL wrapper for WebGL
@@ -104,7 +102,6 @@ func NewGL(canvas js.Value) (*GL, error) {
 	gl.Types.Triangles = GLType(ctx.Get("TRIANGLES").Int())
 	gl.Types.UnsignedShort = GLType(ctx.Get("UNSIGNED_SHORT").Int())
 	gl.Types.UnsignedByte = GLType(ctx.Get("UNSIGNED_BYTE").Int())
-	gl.Types.LEqual = GLType(ctx.Get("LEQUAL").Int())
 	gl.Types.DepthBufferBit = GLType(ctx.Get("DEPTH_BUFFER_BIT").Int())
 	gl.Types.LineLoop = GLType(ctx.Get("LINE_LOOP").Int())
 	gl.Types.CompileStatus = GLType(ctx.Get("COMPILE_STATUS").Int())
@@ -135,9 +132,15 @@ func NewGL(canvas js.Value) (*GL, error) {
 	gl.Types.TextureMinFilter = GLType(ctx.Get("TEXTURE_MIN_FILTER").Int())
 	gl.Types.TextureMagFilter = GLType(ctx.Get("TEXTURE_MAG_FILTER").Int())
 	gl.Types.Nearest = GLType(ctx.Get("NEAREST").Int())
-	gl.Types.Lequal = GLType(ctx.Get("LEQUAL").Int())
+	gl.Types.LEqual = GLType(ctx.Get("LEQUAL").Int())
 
 	return gl, nil
+}
+
+// UniformMatrix4fv wrapper.
+func (gl *GL) UniformMatrix4fv(uniform Uniform, transform mgl32.Mat4) {
+	arr := array.NewTypedArrayFromSlice(transform[:])
+	gl.Ctx().Call("uniformMatrix4fv", uniform.Location(), false, arr.JSValue())
 }
 
 // TODO
@@ -153,14 +156,6 @@ func NewGL(canvas js.Value) (*GL, error) {
 // func CreateProgram(gl *GL)
 
 // func (ctx WebGLRenderingContext) UseProgram()
-
-// UniformMatrix4fv function
-func (gl *GL) UniformMatrix4fv(uniform js.Value, transform mgl32.Mat4) {
-	var buf *[16]float64
-	buf = (*[16]float64)(unsafe.Pointer(&transform))
-	arr := array.NewTypedArrayFromSlice(buf[:])
-	gl.Ctx().Call("uniformMatrix4fv", uniform, false, arr.JSValue())
-}
 
 // Set up shaders
 

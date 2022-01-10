@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"syscall/js"
 	"time"
-	"unsafe"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-gl/mathgl/mgl32"
@@ -64,12 +63,6 @@ func check(err error) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func float32SliceFromMat4(m mgl32.Mat4) []float32 {
-	var p *[16]float32
-	p = (*[16]float32)(unsafe.Pointer(&m))
-	return p[:]
 }
 
 func main() {
@@ -157,7 +150,7 @@ func main() {
 	gl.Ctx().Call("clearColor", 0.5, 0.5, 0.5, 0.9) // Color the screen is cleared to
 	gl.Ctx().Call("clearDepth", 1.0)                // Z value that is set to the Depth buffer every frame
 	gl.Ctx().Call("viewport", 0, 0, width, height)  // Viewport size
-	gl.Ctx().Call("depthFunc", gl.Types.Lequal.JSValue())
+	gl.Ctx().Call("depthFunc", gl.Types.LEqual.JSValue())
 
 	// Bind to element array for draw function
 	gl.Ctx().Call("bindBuffer", gl.Types.ElementArrayBuffer.JSValue(), indexBuffer.JSValue())
@@ -228,29 +221,17 @@ func main() {
 			canvas.Set("height", height)
 		}
 
-		// * Create Matrixes *
-
 		// Generate and apply projection and view matrices
-		projMatrix, viewMatrix := camera.Projection(), camera.View()
-
-		//	spew.Dump(projMatrix, viewMatrix)
-
-		typedProjMatrixBuffer := array.NewTypedArrayFromSlice(float32SliceFromMat4(projMatrix))
-		typedViewMatrixBuffer := array.NewTypedArrayFromSlice(float32SliceFromMat4(viewMatrix))
-
-		gl.Ctx().Call("uniformMatrix4fv", shaderProgram.Uniforms["Pmatrix"].Location(), false, typedProjMatrixBuffer.JSValue())
-		gl.Ctx().Call("uniformMatrix4fv", shaderProgram.Uniforms["Vmatrix"].Location(), false, typedViewMatrixBuffer.JSValue())
+		gl.UniformMatrix4fv(shaderProgram.Uniforms["Pmatrix"], camera.Projection())
+		gl.UniformMatrix4fv(shaderProgram.Uniforms["Vmatrix"], camera.View())
 
 		// // Do new model matrix calculations
 		movMatrix = mgl32.HomogRotate3DX(0.5 * rotation)
 		movMatrix = movMatrix.Mul4(mgl32.HomogRotate3DY(0.3 * rotation))
 		movMatrix = movMatrix.Mul4(mgl32.HomogRotate3DZ(0.2 * rotation))
 
-		// Convert model matrix to a JS TypedArray
-		typedModelMatrixBuffer := array.NewTypedArrayFromSlice(float32SliceFromMat4(movMatrix))
-
 		// Apply the model matrix
-		gl.Ctx().Call("uniformMatrix4fv", shaderProgram.Uniforms["Mmatrix"].Location(), false, typedModelMatrixBuffer.JSValue())
+		gl.UniformMatrix4fv(shaderProgram.Uniforms["Mmatrix"], movMatrix)
 
 		// Clear the screen
 		gl.Ctx().Call("enable", gl.Types.DepthTest.JSValue())
