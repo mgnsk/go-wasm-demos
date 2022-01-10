@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"syscall/js"
-
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
 
 type reader struct {
@@ -81,7 +79,7 @@ func New(typ Type, buf js.Value) TypedArray {
 
 // NewTypedArrayFromSlice creates a new read-only TypedArray.
 func NewTypedArrayFromSlice(v interface{}) TypedArray {
-	b := jsutil.SliceToByteSlice(v)
+	b := Encode(v)
 	buf := js.Global().Get("ArrayBuffer").New(len(b))
 	view := New(Uint8Array, buf)
 
