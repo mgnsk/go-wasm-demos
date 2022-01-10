@@ -95,7 +95,7 @@ func (p *MessagePort) Read(b []byte) (n int, err error) {
 		return 0, fmt.Errorf("expected an ArrayBuffer message")
 	}
 
-	return copy(b, array.CopyBytes(arr)), nil
+	return array.NewReader(arr).Read(b)
 }
 
 // Write a byte array message into the port.

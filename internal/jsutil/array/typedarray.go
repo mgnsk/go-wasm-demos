@@ -5,26 +5,35 @@ package array
 
 import (
 	"fmt"
+	"io"
 	"syscall/js"
 
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
 )
 
-// CopyBytes copies bytes from the raw ArrayBuffer.
-func CopyBytes(ab js.Value) []byte {
-	byteLength := ab.Get("byteLength").Int()
-	if byteLength == 0 {
-		return nil
+type reader struct {
+	ab  js.Value
+	eof bool
+}
+
+func (r reader) Read(b []byte) (int, error) {
+	if r.eof {
+		return 0, io.EOF
 	}
-
-	buf := make([]byte, byteLength)
-	view := js.Global().Get("Uint8Array").New(ab)
-
-	if n := js.CopyBytesToGo(buf, view); n != len(buf) {
-		panic("CopyBytesToGo: invalid copied length")
+	if len(b) < r.ab.Get("byteLength").Int() {
+		return 0, io.ErrShortBuffer
 	}
+	view := js.Global().Get("Uint8Array").New(r.ab)
+	n := js.CopyBytesToGo(b, view)
+	r.eof = true
+	return n, nil
+}
 
-	return buf
+// NewReader returns a single-use io.Reader for ArrayBuffer.
+func NewReader(ab js.Value) io.Reader {
+	return reader{
+		ab: ab,
+	}
 }
 
 // Type if a type of array.
@@ -116,9 +125,13 @@ func (a TypedArray) Buffer() js.Value {
 	return a.JSValue().Get("buffer")
 }
 
-// Bytes returns bytes from the underlying ArrayBuffer.
+// Bytes copies bytes from the underlying ArrayBuffer.
 func (a TypedArray) Bytes() []byte {
-	return CopyBytes(a.Buffer())
+	b := make([]byte, a.ByteLength())
+	if _, err := NewReader(a.Buffer()).Read(b); err != nil {
+		panic(err)
+	}
+	return b
 }
 
 // Len returns the length of the array.
@@ -132,6 +145,6 @@ func (a TypedArray) ByteLength() int {
 }
 
 // Type returns the type of buffer.
-func (a TypedArray) Type() string {
-	return a.JSValue().Get("constructor").Get("name").String()
+func (a TypedArray) Type() Type {
+	return Type(a.JSValue().Get("constructor").Get("name").String())
 }
