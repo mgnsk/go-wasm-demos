@@ -4,6 +4,7 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"syscall/js"
@@ -11,25 +12,44 @@ import (
 
 type reader struct {
 	ab  js.Value
+	buf *bytes.Buffer
 	eof bool
 }
 
-func (r reader) Read(b []byte) (int, error) {
+func (r *reader) Read(b []byte) (int, error) {
 	if r.eof {
 		return 0, io.EOF
 	}
-	if len(b) < r.ab.Get("byteLength").Int() {
-		return 0, io.ErrShortBuffer
+
+	if r.buf != nil {
+		return r.buf.Read(b)
 	}
+
+	if length := r.ab.Get("byteLength").Int(); len(b) < length {
+		buf := make([]byte, length)
+
+		view := js.Global().Get("Uint8Array").New(r.ab)
+		n := js.CopyBytesToGo(buf, view)
+		if n != length {
+			return n, io.ErrUnexpectedEOF
+		}
+
+		r.buf = bytes.NewBuffer(buf)
+
+		return r.buf.Read(b)
+	}
+
 	view := js.Global().Get("Uint8Array").New(r.ab)
 	n := js.CopyBytesToGo(b, view)
+
 	r.eof = true
+
 	return n, nil
 }
 
 // NewReader returns a single-use io.Reader for ArrayBuffer.
 func NewReader(ab js.Value) io.Reader {
-	return reader{
+	return &reader{
 		ab: ab,
 	}
 }
