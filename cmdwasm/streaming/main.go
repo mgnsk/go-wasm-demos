@@ -17,11 +17,12 @@ import (
 
 func main() {
 	if jsutil.IsWorker() {
-		wrpc.Handle("stringGeneratorWorker", stringGeneratorWorker)
-		wrpc.Handle("upperCaseWorker", upperCaseWorker)
-		wrpc.Handle("reverseWorker", reverseWorker)
+		server := wrpc.NewServer().
+			WithFunc("stringGeneratorWorker", stringGeneratorWorker).
+			WithFunc("upperCaseWorker", upperCaseWorker).
+			WithFunc("reverseWorker", reverseWorker)
 
-		if err := wrpc.ListenAndServe(); err != nil {
+		if err := server.ListenAndServe(); err != nil {
 			panic(err)
 		}
 	} else {

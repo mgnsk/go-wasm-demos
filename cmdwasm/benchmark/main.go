@@ -15,15 +15,15 @@ import (
 
 func main() {
 	if jsutil.IsWorker() {
-		wrpc.Handle("call", func(io.Writer, io.Reader) {})
+		server := wrpc.NewServer().
+			WithFunc("call", func(io.Writer, io.Reader) {}).
+			WithFunc("echoBytes", func(w io.Writer, r io.Reader) {
+				if _, err := io.Copy(w, r); err != nil {
+					panic(err)
+				}
+			})
 
-		wrpc.Handle("echoBytes", func(w io.Writer, r io.Reader) {
-			if _, err := io.Copy(w, r); err != nil {
-				panic(err)
-			}
-		})
-
-		if err := wrpc.ListenAndServe(); err != nil {
+		if err := server.ListenAndServe(); err != nil {
 			panic(err)
 		}
 	} else {
@@ -92,7 +92,10 @@ func browser() {
 						result <- ops
 						break
 					}
-					wrpc.Go("call")
+					r, _ := wrpc.Go("call")
+					if _, err := ioutil.ReadAll(r); err != nil && err != io.EOF {
+						panic(err)
+					}
 					n++
 				}
 			}()

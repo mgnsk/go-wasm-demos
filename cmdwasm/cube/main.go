@@ -97,9 +97,9 @@ func main() {
 	jsutil.ConsoleLog(s)
 
 	// Convert buffers to JS TypedArrays
-	colors := array.NewTypedArrayFromSlice(colorsNative)
-	vertices := array.NewTypedArrayFromSlice(verticesNative)
-	indices := array.NewTypedArrayFromSlice(indicesNative)
+	colors := array.NewFromSlice(colorsNative)
+	vertices := array.NewFromSlice(verticesNative)
+	indices := array.NewFromSlice(indicesNative)
 
 	// Create vertex buffer
 	vertexBuffer, err := webgl.CreateBuffer(gl, vertices, gl.Types.ArrayBuffer, gl.Types.StaticDraw)

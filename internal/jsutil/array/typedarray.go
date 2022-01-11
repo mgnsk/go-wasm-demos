@@ -47,7 +47,7 @@ func (r *reader) Read(b []byte) (int, error) {
 	return n, nil
 }
 
-// NewReader returns a single-use io.Reader for ArrayBuffer.
+// NewReader returns a buffered io.Reader for ArrayBuffer.
 func NewReader(ab js.Value) io.Reader {
 	return &reader{
 		ab: ab,
@@ -97,8 +97,8 @@ func New(typ Type, buf js.Value) TypedArray {
 	return TypedArray(js.Global().Get(typ.String()).New(buf))
 }
 
-// NewTypedArrayFromSlice creates a new read-only TypedArray.
-func NewTypedArrayFromSlice(v interface{}) TypedArray {
+// NewFromSlice creates a new read-only TypedArray.
+func NewFromSlice(v interface{}) TypedArray {
 	b := Encode(v)
 	buf := js.Global().Get("ArrayBuffer").New(len(b))
 	view := New(Uint8Array, buf)

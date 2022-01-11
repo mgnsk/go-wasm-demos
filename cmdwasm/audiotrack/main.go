@@ -19,71 +19,77 @@ import (
 	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
 )
 
+func generateChunks(w io.Writer, _ io.Reader) {
+	jsutil.ConsoleLog("2. worker")
+	writer := textproto.NewWriter(bufio.NewWriter(w))
+	defer writer.W.Flush()
+
+	// Currently the wav decoder requires the entire file to be downloaded before it can start producing chunks.
+	// chunks := audio.GetWavChunks(wavURL, chunkSize)
+	chunks := audio.GenerateChunks(5*time.Second, chunkSize)
+
+	// Buffer up to x ms into future.
+	tb := audio.NewTimeBuffer(bufferDuration)
+	dur := (float64(chunkSize) * float64(time.Second)) / (2 * 44100)
+	chunkDuration := time.Duration(dur)
+	jsutil.ConsoleLog("Chunk duration:", chunkDuration.String())
+
+	dw := writer.DotWriter()
+	defer dw.Close()
+
+	for chunk := range chunks {
+		mustWriteChunk(dw, chunk)
+		//	_ = tb
+		// TODO time.Sleep takes a lot of resources.
+		// Block if necessary to to stay ahead only buffer duration.
+		tb.Add(chunkDuration)
+	}
+}
+
+func applyGain(w io.Writer, r io.Reader) {
+	jsutil.ConsoleLog("3. worker")
+	reader := textproto.NewReader(bufio.NewReader(r))
+	writer := textproto.NewWriter(bufio.NewWriter(w))
+	defer writer.W.Flush()
+
+	dw := writer.DotWriter()
+	defer dw.Close()
+
+	dr := reader.DotReader()
+
+	forEachChunk(dr, func(chunk audio.Chunk) {
+		// Apply gain FX.
+		audio.Gain(&chunk, 0.5)
+		mustWriteChunk(dw, chunk)
+	})
+}
+
+func audioSource(w io.Writer, _ io.Reader) {
+	jsutil.ConsoleLog("1. worker")
+	rr, _ := wrpc.Go("generateChunks", "applyGain")
+	if _, err := io.Copy(w, rr); err != nil {
+		panic(err)
+	}
+}
+
+func passThrough(w io.Writer, r io.Reader) {
+	jsutil.ConsoleLog("4. worker")
+	if n, err := io.Copy(w, r); err != nil {
+		panic(err)
+	} else if n == 0 {
+		panic("0 copy")
+	}
+}
+
 func main() {
 	if jsutil.IsWorker() {
-		wrpc.Handle("generateChunks", func(w io.Writer, _ io.Reader) {
-			jsutil.ConsoleLog("2. worker")
-			writer := textproto.NewWriter(bufio.NewWriter(w))
-			defer writer.W.Flush()
+		server := wrpc.NewServer().
+			WithFunc("generateChunks", generateChunks).
+			WithFunc("applyGain", applyGain).
+			WithFunc("audioSource", audioSource).
+			WithFunc("passThrough", passThrough)
 
-			// Currently the wav decoder requires the entire file to be downloaded before it can start producing chunks.
-			// chunks := audio.GetWavChunks(wavURL, chunkSize)
-			chunks := audio.GenerateChunks(5*time.Second, chunkSize)
-
-			// Buffer up to x ms into future.
-			tb := audio.NewTimeBuffer(bufferDuration)
-			dur := (float64(chunkSize) * float64(time.Second)) / (2 * 44100)
-			chunkDuration := time.Duration(dur)
-			jsutil.ConsoleLog("Chunk duration:", chunkDuration.String())
-
-			dw := writer.DotWriter()
-			defer dw.Close()
-
-			for chunk := range chunks {
-				mustWriteChunk(dw, chunk)
-				//	_ = tb
-				// TODO time.Sleep takes a lot of resources.
-				// Block if necessary to to stay ahead only buffer duration.
-				tb.Add(chunkDuration)
-			}
-		})
-
-		wrpc.Handle("applyGain", func(w io.Writer, r io.Reader) {
-			jsutil.ConsoleLog("3. worker")
-			reader := textproto.NewReader(bufio.NewReader(r))
-			writer := textproto.NewWriter(bufio.NewWriter(w))
-			defer writer.W.Flush()
-
-			dw := writer.DotWriter()
-			defer dw.Close()
-
-			dr := reader.DotReader()
-
-			forEachChunk(dr, func(chunk audio.Chunk) {
-				// Apply gain FX.
-				audio.Gain(&chunk, 0.5)
-				mustWriteChunk(dw, chunk)
-			})
-		})
-
-		wrpc.Handle("audioSource", func(w io.Writer, _ io.Reader) {
-			jsutil.ConsoleLog("1. worker")
-			rr, _ := wrpc.Go("generateChunks", "applyGain")
-			if _, err := io.Copy(w, rr); err != nil {
-				panic(err)
-			}
-		})
-
-		wrpc.Handle("passthrough", func(w io.Writer, r io.Reader) {
-			jsutil.ConsoleLog("4. worker")
-			if n, err := io.Copy(w, r); err != nil {
-				panic(err)
-			} else if n == 0 {
-				panic("0 copy")
-			}
-		})
-
-		if err := wrpc.ListenAndServe(); err != nil {
+		if err := server.ListenAndServe(); err != nil {
 			panic(err)
 		}
 	} else {
@@ -127,7 +133,7 @@ const (
 
 func startAudio() {
 	// Master track reader.
-	r, _ := wrpc.Go("audioSource", "passthrough")
+	r, _ := wrpc.Go("audioSource", "passThrough")
 	dr := textproto.NewReader(bufio.NewReader(r)).DotReader()
 
 	audioCtx := js.Global().Get("AudioContext").New()
@@ -145,8 +151,8 @@ func startAudio() {
 			right[i] = chunk.Samples[j+1]
 		}
 
-		arrLeft := array.NewTypedArrayFromSlice(left)
-		arrRight := array.NewTypedArrayFromSlice(right)
+		arrLeft := array.NewFromSlice(left)
+		arrRight := array.NewFromSlice(right)
 
 		player.Call("playNext", arrLeft.JSValue(), arrRight.JSValue())
 	})

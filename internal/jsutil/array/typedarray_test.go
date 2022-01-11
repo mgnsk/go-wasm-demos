@@ -15,7 +15,7 @@ import (
 var _ = Describe("TypedArray", func() {
 	DescribeTable("has correct size",
 		func(typ array.Type, data interface{}) {
-			arr := array.NewTypedArrayFromSlice(data)
+			arr := array.NewFromSlice(data)
 			Expect(arr.Type()).To(Equal(typ))
 			Expect(reflect.ValueOf(data).Len()).To(Equal(arr.Len()))
 

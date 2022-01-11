@@ -47,7 +47,7 @@ type BufferInfo struct {
 //func CreateBufferInfoFromData(gl *GL,
 
 func CreateBufferInfo(gl *GL, data ObjectData) (*BufferInfo, error) {
-	indicesArray := array.NewTypedArrayFromSlice(data.Indices)
+	indicesArray := array.NewFromSlice(data.Indices)
 
 	indicesBuffer, err := CreateBuffer(
 		gl,

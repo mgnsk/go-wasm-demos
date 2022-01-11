@@ -139,7 +139,7 @@ func NewGL(canvas js.Value) (*GL, error) {
 
 // UniformMatrix4fv wrapper.
 func (gl *GL) UniformMatrix4fv(uniform Uniform, transform mgl32.Mat4) {
-	arr := array.NewTypedArrayFromSlice(transform[:])
+	arr := array.NewFromSlice(transform[:])
 	gl.Ctx().Call("uniformMatrix4fv", uniform.Location(), false, arr.JSValue())
 }
 

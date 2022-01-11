@@ -70,7 +70,7 @@ func main() {
 		-0.5, -0.5, 0,
 		0.5, -0.5, 0,
 	}
-	vertexArr := array.NewTypedArrayFromSlice(verticesNative)
+	vertexArr := array.NewFromSlice(verticesNative)
 	vertexBuffer, err := webgl.CreateBuffer(gl, vertexArr, gl.Types.ArrayBuffer, gl.Types.StaticDraw)
 	check(err)
 
@@ -78,7 +78,7 @@ func main() {
 	indicesNative := []uint32{
 		2, 1, 0,
 	}
-	indexArr := array.NewTypedArrayFromSlice(indicesNative)
+	indexArr := array.NewFromSlice(indicesNative)
 	indexBuffer, err := webgl.CreateBuffer(gl, indexArr, gl.Types.ElementArrayBuffer, gl.Types.StaticDraw)
 	check(err)
 

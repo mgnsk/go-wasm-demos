@@ -25,7 +25,8 @@ func main() {
 
 		done := make(chan struct{})
 		conns := make(chan net.Conn)
-		wrpc.Handle("serve", func(w io.Writer, r io.Reader) {
+
+		server := wrpc.NewServer().WithFunc("serve", func(w io.Writer, r io.Reader) {
 			c := newPortConn(w, r)
 			conns <- c
 			<-c.Done()
@@ -45,7 +46,7 @@ func main() {
 			}
 		}()
 
-		if err := wrpc.ListenAndServe(); err != nil {
+		if err := server.ListenAndServe(); err != nil {
 			panic(err)
 		}
 

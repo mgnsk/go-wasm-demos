@@ -100,7 +100,7 @@ func (p *MessagePort) Read(b []byte) (n int, err error) {
 
 // Write a byte array message into the port.
 func (p *MessagePort) Write(b []byte) (n int, err error) {
-	arr := array.NewTypedArrayFromSlice(b).Buffer()
+	arr := array.NewFromSlice(b).Buffer()
 	messages := map[string]interface{}{"arr": arr}
 	tx := []interface{}{arr}
 

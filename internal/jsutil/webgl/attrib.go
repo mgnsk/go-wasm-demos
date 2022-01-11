@@ -49,9 +49,9 @@ func CreateAttrib(gl *GL, name string, arr array.TypedArray, numComponents int, 
 type Attribs map[string]*Attrib
 
 func CreateAttribs(gl *GL, data ObjectData) (map[string]*Attrib, error) {
-	positionsArray := array.NewTypedArrayFromSlice(data.Positions)
-	normalsArray := array.NewTypedArrayFromSlice(data.Normals)
-	texcoordsArray := array.NewTypedArrayFromSlice(data.TexCoords)
+	positionsArray := array.NewFromSlice(data.Positions)
+	normalsArray := array.NewFromSlice(data.Normals)
+	texcoordsArray := array.NewFromSlice(data.TexCoords)
 
 	positionAttrib, err := CreateAttrib(
 		gl,
