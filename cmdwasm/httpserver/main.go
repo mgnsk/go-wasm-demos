@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/wrpc"
 )
 
 func main() {
@@ -62,7 +63,7 @@ func browser() {
 	client := &http.Client{
 		Timeout: time.Second * 3,
 		Transport: &http.Transport{
-			Dial: func(_, _ string) (net.Conn, error) {
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
 				r, w := wrpc.Go("serve")
 				return newPortConn(w, r), nil
 			},

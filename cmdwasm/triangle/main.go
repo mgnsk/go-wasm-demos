@@ -10,9 +10,9 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil/webgl"
+	"github.com/mgnsk/go-wasm-demos/pkg/array"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/webgl"
 )
 
 var (

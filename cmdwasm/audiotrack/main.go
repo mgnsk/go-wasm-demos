@@ -13,10 +13,10 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/mgnsk/go-wasm-demos/internal/audio"
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
+	"github.com/mgnsk/go-wasm-demos/pkg/array"
+	"github.com/mgnsk/go-wasm-demos/pkg/audio"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/wrpc"
 )
 
 func generateChunks(w io.Writer, _ io.Reader) {

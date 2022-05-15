@@ -9,8 +9,8 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil/wrpc"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/wrpc"
 )
 
 func main() {

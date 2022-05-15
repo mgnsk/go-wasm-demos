@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
 )
 
 // Server is runs on a worker.

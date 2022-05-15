@@ -8,7 +8,7 @@ tasks:
   generate:
     usage: Generate javascript files.
     run:
-      - command: bin/render-templates $(pwd)
+      - command: bash render-templates.sh $(pwd)
 
   build:
     usage: Build all apps.
@@ -41,7 +41,4 @@ tasks:
       - set-environment:
           GOOS: js
           GOARCH: wasm
-      - command: go mod download
-      - command: go mod vendor
-      - command: sed -i 's/build windows/build windows js/g' ./vendor/github.com/onsi/ginkgo/internal/remote/output_interceptor_win.go
-      - command: go test -mod=vendor -v -count=1 -exec="env --ignore-environment ${GOROOT}/misc/wasm/go_js_wasm_exec" ${pkg}
+      - command: go test -v -count=1 -exec="env --ignore-environment ${GOROOT}/misc/wasm/go_js_wasm_exec" ${pkg}

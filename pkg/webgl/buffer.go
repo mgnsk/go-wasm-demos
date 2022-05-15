@@ -6,7 +6,7 @@ package webgl
 import (
 	"syscall/js"
 
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/pkg/array"
 )
 
 type Buffer struct {

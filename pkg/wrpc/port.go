@@ -7,7 +7,7 @@ import (
 	"sync"
 	"syscall/js"
 
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/pkg/array"
 )
 
 // MessagePort is a synchronous JS MessagePort wrapper.

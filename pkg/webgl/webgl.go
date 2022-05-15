@@ -7,7 +7,7 @@ import (
 	"syscall/js"
 
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/mgnsk/go-wasm-demos/internal/jsutil/array"
+	"github.com/mgnsk/go-wasm-demos/pkg/array"
 )
 
 type GLType int
