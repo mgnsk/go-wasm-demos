@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package wrpc
 
@@ -60,8 +59,8 @@ func (s *Server) ListenAndServe() error {
 
 func (s *Server) execute(data js.Value) {
 	name := data.Get("call").String()
-	r := NewMessagePort(data.Get("input"))
-	w := NewMessagePort(data.Get("output"))
+	r := NewMessagePort(data.Get("r"))
+	w := NewMessagePort(data.Get("w"))
 	defer w.Close()
 
 	f, ok := s.funcs[name]

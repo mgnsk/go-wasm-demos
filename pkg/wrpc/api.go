@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package wrpc
 
@@ -18,20 +17,20 @@ type WorkerFunc func(io.Writer, io.Reader)
 // The returned WriteCloser is piped to the first func's Reader and
 // the returned Reader is piped from the last func's Writer.
 //
-// When the last func finishes, the returned io.Reader returns io.EOF.
+// When all funcs are finished, the returned io.Reader returns io.EOF.
 func Go(funcs ...string) (io.Reader, io.WriteCloser) {
 	remoteReader, localWriter := Pipe()
 
 	for _, name := range funcs {
 		p1, p2 := Pipe()
 
-		output := p1
-		input := remoteReader
+		w := p1
+		r := remoteReader
 		name := name
 
 		worker := pool.Get().(*Worker)
 		go func() {
-			if err := worker.Execute(output, input, name); err != nil {
+			if err := worker.Execute(w, r, name); err != nil {
 				panic(err)
 			}
 			pool.Put(worker)

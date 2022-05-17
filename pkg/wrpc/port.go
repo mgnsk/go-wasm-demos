@@ -1,3 +1,5 @@
+//go:build js && wasm
+
 package wrpc
 
 import (
@@ -28,7 +30,7 @@ func Pipe() (*MessagePort, *MessagePort) {
 	return p1, p2
 }
 
-// NewMessagePort wraps a JS value into MessagePort.
+// NewMessagePort wraps a JS MessagePort object.
 func NewMessagePort(value js.Value) *MessagePort {
 	p := &MessagePort{
 		value:    value,
@@ -53,11 +55,6 @@ func NewMessagePort(value js.Value) *MessagePort {
 	})
 
 	return p
-}
-
-// JSValue returns the underlying MessagePort value.
-func (p *MessagePort) JSValue() js.Value {
-	return p.value
 }
 
 // Read a single message or error from the port.

@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package wrpc
 
@@ -16,29 +15,31 @@ type Worker struct {
 }
 
 // Close the worker.
-func (w *Worker) Close() {
-	w.worker.Call("terminate")
+func (wk *Worker) Close() {
+	wk.worker.Call("terminate")
 }
 
 // Execute synchronously executes a remote call on the worker.
-func (w *Worker) Execute(output, input *MessagePort, name string) error {
+func (wk *Worker) Execute(w, r *MessagePort, name string) error {
 	messages := map[string]interface{}{
-		"call":   name,
-		"output": output.JSValue(),
-		"input":  input.JSValue(),
+		"call": name,
+		"w":    w.value,
+		"r":    r.value,
 	}
 
-	transferables := []interface{}{output.JSValue()}
-	if input != output {
-		// Don't sent duplicate conn.
-		transferables = append(transferables, input.JSValue())
+	var transferables []interface{}
+
+	if r == w {
+		transferables = []interface{}{w.value}
+	} else {
+		transferables = []interface{}{w.value, r.value}
 	}
 
-	if err := w.port.WriteMessage(messages, transferables); err != nil {
+	if err := wk.port.WriteMessage(messages, transferables); err != nil {
 		return fmt.Errorf("error sending call: %w", err)
 	}
 
-	if err := w.port.WriteMessage(map[string]interface{}{"__ping": true}, nil); err != nil {
+	if err := wk.port.WriteMessage(map[string]interface{}{"__ping": true}, nil); err != nil {
 		return fmt.Errorf("error pinging worker: %w", err)
 	}
 
