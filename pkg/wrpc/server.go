@@ -7,26 +7,8 @@ import (
 	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
 )
 
-// Server is runs on a worker.
-type Server struct {
-	funcs map[string]WorkerFunc
-}
-
-// NewServer creates a new worker server.
-func NewServer() *Server {
-	return &Server{
-		funcs: map[string]WorkerFunc{},
-	}
-}
-
-// WithFunc registers a function to handle.
-func (s *Server) WithFunc(name string, f WorkerFunc) *Server {
-	s.funcs[name] = f
-	return s
-}
-
 // ListenAndServe runs the server on worker.
-func (s *Server) ListenAndServe() error {
+func ListenAndServe() error {
 	port := NewMessagePort(js.Global())
 	defer port.Close()
 
@@ -43,7 +25,7 @@ func (s *Server) ListenAndServe() error {
 		}
 		switch {
 		case !data.Get("call").IsUndefined():
-			if err := s.call(data); err != nil {
+			if err := call(data); err != nil {
 				return err
 			}
 		default:
@@ -52,13 +34,13 @@ func (s *Server) ListenAndServe() error {
 	}
 }
 
-func (s *Server) call(data js.Value) error {
+func call(data js.Value) error {
 	name := data.Get("call").String()
 	r := NewMessagePort(data.Get("r"))
 	w := NewMessagePort(data.Get("w"))
 	defer w.Close()
 
-	f, ok := s.funcs[name]
+	f, ok := funcs[name]
 	if !ok {
 		return fmt.Errorf("server: WorkerFunc '%s' not found", name)
 	}

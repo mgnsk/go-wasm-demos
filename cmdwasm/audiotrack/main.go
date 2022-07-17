@@ -67,7 +67,7 @@ func applyGain(w io.Writer, r io.Reader) error {
 
 func audioSource(w io.Writer, _ io.Reader) error {
 	jsutil.ConsoleLog("1. worker")
-	rr, _ := wrpc.Go("generateChunks", "applyGain")
+	rr, _ := wrpc.Call("generateChunks", "applyGain")
 	if _, err := io.Copy(w, rr); err != nil {
 		panic(err)
 	}
@@ -88,13 +88,12 @@ func passThrough(w io.Writer, r io.Reader) error {
 
 func main() {
 	if jsutil.IsWorker() {
-		server := wrpc.NewServer().
-			WithFunc("generateChunks", generateChunks).
-			WithFunc("applyGain", applyGain).
-			WithFunc("audioSource", audioSource).
-			WithFunc("passThrough", passThrough)
+		wrpc.Register("generateChunks", generateChunks)
+		wrpc.Register("applyGain", applyGain)
+		wrpc.Register("audioSource", audioSource)
+		wrpc.Register("passThrough", passThrough)
 
-		if err := server.ListenAndServe(); err != nil {
+		if err := wrpc.ListenAndServe(); err != nil {
 			panic(err)
 		}
 	} else {
@@ -150,7 +149,7 @@ const (
 
 func runAudio() {
 	// Master track reader.
-	r, _ := wrpc.Go("audioSource", "passThrough")
+	r, _ := wrpc.Call("audioSource", "passThrough")
 	dr := textproto.NewReader(bufio.NewReader(r)).DotReader()
 
 	audioCtx := js.Global().Get("AudioContext").New()

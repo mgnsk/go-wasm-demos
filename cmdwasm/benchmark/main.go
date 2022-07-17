@@ -13,16 +13,15 @@ import (
 
 func main() {
 	if jsutil.IsWorker() {
-		server := wrpc.NewServer().
-			WithFunc("call", func(io.Writer, io.Reader) error { return nil }).
-			WithFunc("echoBytes", func(w io.Writer, r io.Reader) error {
-				if _, err := io.Copy(w, r); err != nil {
-					panic(fmt.Errorf("echoBytes handler: %w", err))
-				}
-				return nil
-			})
+		wrpc.Register("call", func(io.Writer, io.Reader) error { return nil })
+		wrpc.Register("echoBytes", func(w io.Writer, r io.Reader) error {
+			if _, err := io.Copy(w, r); err != nil {
+				panic(fmt.Errorf("echoBytes handler: %w", err))
+			}
+			return nil
+		})
 
-		if err := server.ListenAndServe(); err != nil {
+		if err := wrpc.ListenAndServe(); err != nil {
 			panic(err)
 		}
 	} else {
@@ -50,7 +49,7 @@ func browser() {
 	dur := 2 * time.Second
 
 	for size := initialSize; size <= maxSize; size *= 2 {
-		r, w := wrpc.Go("echoBytes")
+		r, w := wrpc.Call("echoBytes")
 		go func() {
 			defer w.Close()
 			rd := bufio.NewReaderSize(byteGenerator{}, size)
@@ -91,7 +90,7 @@ func browser() {
 						result <- ops
 						break
 					}
-					r, _ := wrpc.Go("call")
+					r, _ := wrpc.Call("call")
 					if _, err := ioutil.ReadAll(r); err != nil && err != io.EOF {
 						panic(err)
 					}
@@ -107,4 +106,6 @@ func browser() {
 
 		jsutil.ConsoleLog("call: concurency %d: ops:", concurrency, ops)
 	}
+
+	jsutil.ConsoleLog("benchmark done")
 }

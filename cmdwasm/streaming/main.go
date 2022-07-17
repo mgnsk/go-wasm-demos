@@ -14,12 +14,11 @@ import (
 
 func main() {
 	if jsutil.IsWorker() {
-		server := wrpc.NewServer().
-			WithFunc("stringGeneratorWorker", stringGeneratorWorker).
-			WithFunc("upperCaseWorker", upperCaseWorker).
-			WithFunc("reverseWorker", reverseWorker)
+		wrpc.Register("stringGeneratorWorker", stringGeneratorWorker)
+		wrpc.Register("upperCaseWorker", upperCaseWorker)
+		wrpc.Register("reverseWorker", reverseWorker)
 
-		if err := server.ListenAndServe(); err != nil {
+		if err := wrpc.ListenAndServe(); err != nil {
 			panic(err)
 		}
 	} else {
@@ -114,7 +113,7 @@ func browser() {
 	defer jsutil.ConsoleLog("Exiting main program")
 
 	// Schedule 3 workers to start streaming
-	r, w := wrpc.Go("stringGeneratorWorker", "upperCaseWorker", "reverseWorker")
+	r, w := wrpc.Call("stringGeneratorWorker", "upperCaseWorker", "reverseWorker")
 
 	// Specify the count of strings to be generated.
 	enc := gob.NewEncoder(w)
