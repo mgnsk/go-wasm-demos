@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"syscall/js"
+
+	"golang.org/x/exp/constraints"
 )
 
 type reader struct {
@@ -22,12 +24,13 @@ func (r *reader) Read(b []byte) (int, error) {
 		return r.buf.Read(b)
 	}
 
-	length := r.ab.Get("byteLength").Int()
+	abLen := r.ab.Get("byteLength").Int()
 	view := js.Global().Get("Uint8Array").New(r.ab)
 
-	if len(b) <= length {
+	if len(b) >= abLen {
+		// Can fit exactly.
 		n := js.CopyBytesToGo(b, view)
-		if n != length {
+		if n != abLen {
 			return n, io.ErrUnexpectedEOF
 		}
 
@@ -36,9 +39,10 @@ func (r *reader) Read(b []byte) (int, error) {
 		return n, nil
 	}
 
-	buf := make([]byte, length)
+	// Not enough room.
+	buf := make([]byte, abLen)
 	n := js.CopyBytesToGo(buf, view)
-	if n != length {
+	if n != abLen {
 		return n, io.ErrUnexpectedEOF
 	}
 
@@ -54,130 +58,106 @@ func NewReader(ab js.Value) io.Reader {
 	}
 }
 
-// Type if a type of array.
-type Type string
-
-func (t Type) String() string {
-	return string(t)
+// TypedArray is a JS TypedArray.
+type TypedArray struct {
+	js.Value
 }
 
-// Array types.
-const (
-	Int8Array      Type = "Int8Array"
-	Int16Array     Type = "Int16Array"
-	Int32Array     Type = "Int32Array"
-	BigInt64Array  Type = "BigInt64Array"
-	Uint8Array     Type = "Uint8Array"
-	Uint16Array    Type = "Uint16Array"
-	Uint32Array    Type = "Uint32Array"
-	BigUint64Array Type = "BigUint64Array"
-	Float32Array   Type = "Float32Array"
-	Float64Array   Type = "Float64Array"
-)
-
-// TypedArray is a JS TypedArray.
-type TypedArray js.Value
-
 // NewInt8Array creates a new Int8Array view over the buffer.
-func NewInt8Array(buf js.Value) TypedArray {
-	return TypedArray(js.Global().Get(Int8Array.String()).New(buf))
+func NewInt8Array(ab js.Value) TypedArray {
+	return TypedArray{js.Global().Get("Int8Array").New(ab)}
 }
 
 // NewInt16Array creates a new Int16Array view over the buffer.
-func NewInt16Array(buf js.Value) TypedArray {
-	return TypedArray(js.Global().Get(Int16Array.String()).New(buf))
+func NewInt16Array(ab js.Value) TypedArray {
+	return TypedArray{js.Global().Get("Int16Array").New(ab)}
 }
 
 // NewInt32Array creates a new Int32Array view over the buffer.
-func NewInt32Array(buf js.Value) TypedArray {
-	return TypedArray(js.Global().Get(Int32Array.String()).New(buf))
+func NewInt32Array(ab js.Value) TypedArray {
+	return TypedArray{js.Global().Get("Int32Array").New(ab)}
 }
 
 // NewBigInt64Array creates a new BigInt64Array view over the buffer.
-func NewBigInt64Array(buf js.Value) TypedArray {
-	return TypedArray(js.Global().Get(BigInt64Array.String()).New(buf))
+func NewBigInt64Array(ab js.Value) TypedArray {
+	return TypedArray{js.Global().Get("BigInt64Array").New(ab)}
 }
 
 // NewUint8Array creates a new Uint8Array view over the buffer.
-func NewUint8Array(buf js.Value) TypedArray {
-	return TypedArray(js.Global().Get(Uint8Array.String()).New(buf))
+func NewUint8Array(ab js.Value) TypedArray {
+	return TypedArray{js.Global().Get("Uint8Array").New(ab)}
 }
 
 // NewUint16Array creates a new Uint16Array view over the buffer.
-func NewUint16Array(buf js.Value) TypedArray {
-	return TypedArray(js.Global().Get(Uint16Array.String()).New(buf))
+func NewUint16Array(ab js.Value) TypedArray {
+	return TypedArray{js.Global().Get("Uint16Array").New(ab)}
 }
 
 // NewUint32Array creates a new Uint32Array view over the buffer.
-func NewUint32Array(buf js.Value) TypedArray {
-	return TypedArray(js.Global().Get(Uint32Array.String()).New(buf))
+func NewUint32Array(ab js.Value) TypedArray {
+	return TypedArray{js.Global().Get("Uint32Array").New(ab)}
 }
 
 // NewBigUint64Array creates a new BigUint64Array view over the buffer.
-func NewBigUint64Array(buf js.Value) TypedArray {
-	return TypedArray(js.Global().Get(BigUint64Array.String()).New(buf))
+func NewBigUint64Array(ab js.Value) TypedArray {
+	return TypedArray{js.Global().Get("BigUint64Array").New(ab)}
 }
 
 // NewFloat32Array creates a new Float32Array view over the buffer.
-func NewFloat32Array(buf js.Value) TypedArray {
-	return TypedArray(js.Global().Get(Float32Array.String()).New(buf))
+func NewFloat32Array(ab js.Value) TypedArray {
+	return TypedArray{js.Global().Get("Float32Array").New(ab)}
 }
 
 // NewFloat64Array creates a new Float64Array view over the buffer.
-func NewFloat64Array(buf js.Value) TypedArray {
-	return TypedArray(js.Global().Get(Float64Array.String()).New(buf))
+func NewFloat64Array(ab js.Value) TypedArray {
+	return TypedArray{js.Global().Get("Float64Array").New(ab)}
 }
 
 // NewFromSlice creates a new read-only TypedArray.
-func NewFromSlice(v interface{}) TypedArray {
-	b := Encode(v)
-	buf := js.Global().Get("ArrayBuffer").New(len(b))
-	view := NewUint8Array(buf)
+func NewFromSlice[E constraints.Integer | constraints.Float](s []E) TypedArray {
+	b := Encode(s)
+	ab := js.Global().Get("ArrayBuffer").New(len(b))
+	view := NewUint8Array(ab)
 
-	if n := js.CopyBytesToJS(view.JSValue(), b); n != len(b) {
+	if n := js.CopyBytesToJS(view.Value, b); n != len(b) {
 		panic(fmt.Errorf("NewArrayBufferFromSlice: copied: %d, expected: %d", n, len(b)))
 	}
 
-	switch v.(type) {
-	case []int8:
-		return NewInt8Array(buf)
-	case []int16:
-		return NewInt16Array(buf)
-	case []int32:
-		return NewInt32Array(buf)
-	case []int64:
-		return NewBigInt64Array(buf)
-	case []uint8:
+	switch any(E(0)).(type) {
+	case int8:
+		return NewInt8Array(ab)
+	case int16:
+		return NewInt16Array(ab)
+	case int32:
+		return NewInt32Array(ab)
+	case int64:
+		return NewBigInt64Array(ab)
+	case uint8:
 		return view
-	case []uint16:
-		return NewUint16Array(buf)
-	case []uint32:
-		return NewUint32Array(buf)
-	case []uint64:
-		return NewBigUint64Array(buf)
-	case []float32:
-		return NewFloat32Array(buf)
-	case []float64:
-		return NewFloat64Array(buf)
+	case uint16:
+		return NewUint16Array(ab)
+	case uint32:
+		return NewUint32Array(ab)
+	case uint64:
+		return NewBigUint64Array(ab)
+	case float32:
+		return NewFloat32Array(ab)
+	case float64:
+		return NewFloat64Array(ab)
 	default:
-		panic(fmt.Errorf("NewTypedArrayFromSlice: invalid type '%T'", v))
+		panic(fmt.Errorf("NewTypedArrayFromSlice: invalid type '%T'", s))
 	}
 }
 
-// JSValue returns the underlying JS value.
-func (a TypedArray) JSValue() js.Value {
-	return js.Value(a)
-}
-
-// Buffer returns the underlying ArrayBuffer.
-func (a TypedArray) Buffer() js.Value {
-	return a.JSValue().Get("buffer")
+// ArrayBuffer returns the underlying ArrayBuffer.
+func (a TypedArray) ArrayBuffer() js.Value {
+	return a.Get("buffer")
 }
 
 // Bytes copies bytes from the underlying ArrayBuffer.
 func (a TypedArray) Bytes() []byte {
 	b := make([]byte, a.ByteLength())
-	if _, err := NewReader(a.Buffer()).Read(b); err != nil {
+	if _, err := NewReader(a.ArrayBuffer()).Read(b); err != nil {
 		panic(err)
 	}
 	return b
@@ -185,15 +165,15 @@ func (a TypedArray) Bytes() []byte {
 
 // Len returns the length of the array.
 func (a TypedArray) Len() int {
-	return a.JSValue().Get("length").Int()
+	return a.Get("length").Int()
 }
 
 // ByteLength returns the byte length of the array.
 func (a TypedArray) ByteLength() int {
-	return a.JSValue().Get("byteLength").Int()
+	return a.Get("byteLength").Int()
 }
 
-// Type returns the type of buffer.
-func (a TypedArray) Type() Type {
-	return Type(a.JSValue().Get("constructor").Get("name").String())
+// Type returns the type of the array.
+func (a TypedArray) Type() string {
+	return a.Get("constructor").Get("name").String()
 }

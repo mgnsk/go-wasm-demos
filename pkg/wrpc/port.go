@@ -1,5 +1,3 @@
-//go:build js && wasm
-
 package wrpc
 
 import (
@@ -30,7 +28,7 @@ func Pipe() (*MessagePort, *MessagePort) {
 	return p1, p2
 }
 
-// NewMessagePort wraps a JS MessagePort object.
+// NewMessagePort creates a synchronous JS MessagePort wrapper.
 func NewMessagePort(value js.Value) *MessagePort {
 	p := &MessagePort{
 		value:    value,
@@ -97,11 +95,11 @@ func (p *MessagePort) Read(b []byte) (n int, err error) {
 
 // Write a byte array message into the port.
 func (p *MessagePort) Write(b []byte) (n int, err error) {
-	arr := array.NewFromSlice(b).Buffer()
-	messages := map[string]interface{}{"arr": arr}
-	tx := []interface{}{arr}
+	ab := array.NewFromSlice(b).ArrayBuffer()
+	messages := map[string]interface{}{"arr": ab}
+	transferables := []interface{}{ab}
 
-	if err := p.WriteMessage(messages, tx); err != nil {
+	if err := p.WriteMessage(messages, transferables); err != nil {
 		return 0, err
 	}
 

@@ -12,9 +12,9 @@ type Point3D mgl32.Vec3
 // dir (must be unit vector) by an angle.
 // Formula from here: https://sites.google.com/site/glennmurray/Home/rotation-matrices-and-formulas
 func (p Point3D) RotateAroundPoint(middle mgl32.Vec3, axis mgl32.Vec3, angle float32) mgl32.Vec3 {
-	a := middle[0]
-	b := middle[1]
-	c := middle[2]
+	a := middle.X()
+	b := middle.Y()
+	c := middle.Z()
 	u := axis.X()
 	v := axis.Y()
 	w := axis.Z()

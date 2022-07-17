@@ -1,6 +1,3 @@
-//go:build js && wasm
-// +build js,wasm
-
 package webgl
 
 import (
@@ -26,7 +23,7 @@ func CreateBuffer(gl *GL, arr array.TypedArray, bufType, drawType GLType) (*Buff
 	// TODO check errors
 	buffer := gl.Ctx().Call("createBuffer", bufType.JSValue())
 	gl.Ctx().Call("bindBuffer", bufType.JSValue(), buffer)
-	gl.Ctx().Call("bufferData", bufType.JSValue(), arr.JSValue(), drawType.JSValue())
+	gl.Ctx().Call("bufferData", bufType.JSValue(), arr.Value, drawType.JSValue())
 	gl.Ctx().Call("bindBuffer", bufType.JSValue(), nil)
 
 	return &Buffer{

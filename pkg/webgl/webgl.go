@@ -1,6 +1,3 @@
-//go:build js && wasm
-// +build js,wasm
-
 package webgl
 
 import (
@@ -140,7 +137,7 @@ func NewGL(canvas js.Value) (*GL, error) {
 // UniformMatrix4fv wrapper.
 func (gl *GL) UniformMatrix4fv(uniform Uniform, transform mgl32.Mat4) {
 	arr := array.NewFromSlice(transform[:])
-	gl.Ctx().Call("uniformMatrix4fv", uniform.Location(), false, arr.JSValue())
+	gl.Ctx().Call("uniformMatrix4fv", uniform.Location(), false, arr.Value)
 }
 
 // TODO
