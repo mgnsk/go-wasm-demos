@@ -32,7 +32,7 @@ func (s *Server) ListenAndServe() error {
 
 	// Notify the caller to start sending calls. We have established
 	// an event listener for the worker port.
-	if err := port.WriteMessage(map[string]interface{}{}, nil); err != nil {
+	if err := port.WriteMessage(map[string]any{}, nil); err != nil {
 		return fmt.Errorf("server: error sending worker init ACK: %w", err)
 	}
 

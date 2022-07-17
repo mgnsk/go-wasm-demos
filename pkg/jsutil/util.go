@@ -11,12 +11,12 @@ func IsWorker() bool {
 }
 
 // CreateURLObject creates an url object.
-func CreateURLObject(data interface{}, mime string) js.Value {
-	blob := js.Global().Get("Blob").New([]interface{}{data}, map[string]interface{}{"type": mime})
+func CreateURLObject(data any, mime string) js.Value {
+	blob := js.Global().Get("Blob").New([]any{data}, map[string]any{"type": mime})
 	return js.Global().Get("URL").Call("createObjectURL", blob)
 }
 
 // ConsoleLog console.log
-func ConsoleLog(args ...interface{}) {
+func ConsoleLog(args ...any) {
 	js.Global().Get("console").Call("log", args...)
 }

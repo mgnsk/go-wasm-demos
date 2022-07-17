@@ -68,7 +68,7 @@ type GL struct {
 
 // GLContext specifies interface for calling the underlying GL implementation.
 type GLContext interface {
-	Call(m string, args ...interface{}) js.Value
+	Call(m string, args ...any) js.Value
 }
 
 // Ctx of webgl

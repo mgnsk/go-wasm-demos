@@ -108,7 +108,7 @@ func browser() {
 	var once sync.Once
 	done := make(chan struct{})
 
-	js.Global().Set("startAudio", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	js.Global().Set("startAudio", js.FuncOf(func(this js.Value, args []js.Value) any {
 		once.Do(func() {
 			go func() {
 				defer close(done)

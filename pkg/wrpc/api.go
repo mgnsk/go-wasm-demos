@@ -42,7 +42,7 @@ func Go(funcs ...string) (io.Reader, io.WriteCloser) {
 }
 
 var pool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		worker, err := NewWorker("index.js")
 		if err != nil {
 			panic(err)

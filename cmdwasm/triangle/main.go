@@ -33,7 +33,7 @@ func check(err error) {
 
 func main() {
 	var cb js.Func
-	cb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	cb = js.FuncOf(func(this js.Value, args []js.Value) any {
 		fmt.Println("button clicked")
 		// cb.Release() // release the function if the button will not be clicked again
 		return nil
@@ -132,7 +132,7 @@ func main() {
 
 	var tmark float32
 	var renderFrame js.Func
-	renderFrame = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	renderFrame = js.FuncOf(func(this js.Value, args []js.Value) any {
 		fpsStats.Call("begin")
 
 		now := float32(args[0].Float())

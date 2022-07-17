@@ -19,18 +19,18 @@ func (wk *Worker) Close() {
 
 // Call synchronously executes a remote call on the worker.
 func (wk *Worker) Call(w, r *MessagePort, name string) error {
-	messages := map[string]interface{}{
+	messages := map[string]any{
 		"call": name,
 		"w":    w.value,
 		"r":    r.value,
 	}
 
-	var transferables []interface{}
+	var transferables []any
 
 	if r == w {
-		transferables = []interface{}{w.value}
+		transferables = []any{w.value}
 	} else {
-		transferables = []interface{}{w.value, r.value}
+		transferables = []any{w.value, r.value}
 	}
 
 	if err := wk.port.WriteMessage(messages, transferables); err != nil {
@@ -54,7 +54,7 @@ func NewWorker(url string) (*Worker, error) {
 		return nil, fmt.Errorf("error waiting for worker to become ready: %w", err)
 	}
 
-	runtime.SetFinalizer(newWorker, func(w interface{}) {
+	runtime.SetFinalizer(newWorker, func(w any) {
 		w.(*Worker).Close()
 	})
 

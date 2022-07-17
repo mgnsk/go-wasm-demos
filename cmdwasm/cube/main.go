@@ -65,7 +65,7 @@ func check(err error) {
 func main() {
 	// Sanity check.
 	var cb js.Func
-	cb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	cb = js.FuncOf(func(this js.Value, args []js.Value) any {
 		fmt.Println("button clicked")
 		// cb.Release() // release the function if the button will not be clicked again
 		return nil
@@ -166,7 +166,7 @@ func main() {
 	)
 
 	var keydown js.Func
-	keydown = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	keydown = js.FuncOf(func(this js.Value, args []js.Value) any {
 		rotateAmount := float32(0.1)
 		moveAmount := float32(1)
 		rollAmount := float32(0.1)
@@ -201,7 +201,7 @@ func main() {
 	var rotation float32
 	var tmark float32
 	var renderFrame js.Func
-	renderFrame = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	renderFrame = js.FuncOf(func(this js.Value, args []js.Value) any {
 		fpsStats.Call("begin")
 
 		now := float32(args[0].Float())

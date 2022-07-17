@@ -10,7 +10,7 @@ import (
 type Program struct {
 	gl             *GL
 	program        js.Value
-	UniformSetters map[string]func(gl *GL, val interface{})
+	UniformSetters map[string]func(gl *GL, val any)
 	AttribMap      map[string]js.Value
 	AttribSetters  map[string]func(*Attrib)
 }
@@ -83,10 +83,10 @@ func CreateProgram(gl *GL, vertShaderSrc, fragShaderSrc string, attribs []string
 // TODO clean up the code to make it not look like a javascript wrapper
 // or use g3n
 
-func createUniformSetters(gl *GL, program js.Value) map[string]func(g *GL, val interface{}) {
+func createUniformSetters(gl *GL, program js.Value) map[string]func(g *GL, val any) {
 	var textureUnit int
 
-	createUniformSetter := func(uniformInfo js.Value) func(gl *GL, val interface{}) {
+	createUniformSetter := func(uniformInfo js.Value) func(gl *GL, val any) {
 
 		name := uniformInfo.Get("name").String()
 
@@ -102,68 +102,68 @@ func createUniformSetters(gl *GL, program js.Value) map[string]func(g *GL, val i
 		switch GLType(uniformInfo.Get("type").Int()) {
 		case gl.Types.Float:
 			if isArray {
-				return func(g *GL, val interface{}) {
+				return func(g *GL, val any) {
 					gl.Ctx().Call("uniform1v", location, val)
 				}
 			} else {
-				return func(gl *GL, val interface{}) {
+				return func(gl *GL, val any) {
 					gl.Ctx().Call("uniform1f", location, val)
 				}
 			}
 		case gl.Types.FloatVec2:
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniform2fv", location, val)
 			}
 		case gl.Types.FloatVec3:
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniform3fv", location, val)
 			}
 		case gl.Types.FloatVec4:
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniform4fv", location, val)
 			}
 		case gl.Types.Int:
 			if isArray {
-				return func(g *GL, val interface{}) {
+				return func(g *GL, val any) {
 					gl.Ctx().Call("uniform1iv", location, val)
 				}
 			} else {
-				return func(g *GL, val interface{}) {
+				return func(g *GL, val any) {
 					gl.Ctx().Call("uniform1i", location, val)
 				}
 			}
 		case gl.Types.Bool:
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniform1iv", location, val)
 			}
 		case gl.Types.IntVec2:
 			fallthrough
 		case gl.Types.BoolVec2:
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniform2iv", location, val)
 			}
 		case gl.Types.IntVec3:
 			fallthrough
 		case gl.Types.BoolVec3:
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniform3iv", location, val)
 			}
 		case gl.Types.IntVec4:
 			fallthrough
 		case gl.Types.BoolVec4:
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniform4iv", location, val)
 			}
 		case gl.Types.FloatMat2:
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniformMatrix2fv", location, false, val)
 			}
 		case gl.Types.FloatMat3:
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniformMatrix3fv", location, false, val)
 			}
 		case gl.Types.FloatMat4:
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniformMatrix4fv", location, false, val)
 			}
 		case gl.Types.Sampler2D:
@@ -181,8 +181,8 @@ func createUniformSetters(gl *GL, program js.Value) map[string]func(g *GL, val i
 
 				gl.Ctx().Call("uniform1iv", location, units)
 
-				return func(g *GL, val interface{}) {
-					if v, ok := val.([]interface{}); ok {
+				return func(g *GL, val any) {
+					if v, ok := val.([]any); ok {
 						for idx, texture := range v {
 							gl.Ctx().Call("activeTexture", int(gl.Types.Texture0)+units[idx])
 							gl.Ctx().Call("bindTexture", bindPoint, texture)
@@ -195,7 +195,7 @@ func createUniformSetters(gl *GL, program js.Value) map[string]func(g *GL, val i
 
 			textureUnit++
 
-			return func(g *GL, val interface{}) {
+			return func(g *GL, val any) {
 				gl.Ctx().Call("uniform1i", location, textureUnit)
 				gl.Ctx().Call("activeTexture", int(gl.Types.Texture0)+textureUnit)
 				gl.Ctx().Call("bindTexture", bindPoint, val)
@@ -205,7 +205,7 @@ func createUniformSetters(gl *GL, program js.Value) map[string]func(g *GL, val i
 		}
 	}
 
-	uniformSetters := make(map[string]func(gl *GL, val interface{}))
+	uniformSetters := make(map[string]func(gl *GL, val any))
 
 	numUniforms := gl.Ctx().Call("getProgramParameter", program, gl.Types.ActiveUniforms.JSValue()).Int()
 	for i := 0; i < numUniforms; i++ {

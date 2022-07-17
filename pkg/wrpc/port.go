@@ -48,7 +48,7 @@ func NewMessagePort(value js.Value) *MessagePort {
 	value.Set("onmessageerror", onMessageError)
 	value.Set("onmessage", onMessage)
 
-	runtime.SetFinalizer(p, func(port interface{}) {
+	runtime.SetFinalizer(p, func(port any) {
 		port.(*MessagePort).value.Call("close")
 		onError.Release()
 		onMessageError.Release()
@@ -64,14 +64,14 @@ func (p *MessagePort) ReadMessage() (js.Value, error) {
 	case <-p.done:
 		return js.Value{}, p.err
 	case msg := <-p.messages:
-		p.value.Call("postMessage", map[string]interface{}{"__ack": true})
+		p.value.Call("postMessage", map[string]any{"__ack": true})
 		return msg, nil
 	}
 }
 
 // WriteMessage writes a messages into the port.
 // It blocks until the remote side reads the message.
-func (p *MessagePort) WriteMessage(messages map[string]interface{}, transferables []interface{}) error {
+func (p *MessagePort) WriteMessage(messages map[string]any, transferables []any) error {
 	p.value.Call("postMessage", messages, transferables)
 	select {
 	case <-p.done:
@@ -83,7 +83,7 @@ func (p *MessagePort) WriteMessage(messages map[string]interface{}, transferable
 
 // WriteError writes an error message into the port.
 func (p *MessagePort) WriteError(err error) error {
-	return p.WriteMessage(map[string]interface{}{"__err": err.Error()}, nil)
+	return p.WriteMessage(map[string]any{"__err": err.Error()}, nil)
 }
 
 // Read a byte array message from the port.
@@ -123,8 +123,8 @@ func (p *MessagePort) Read(b []byte) (n int, err error) {
 // Write a byte array message into the port.
 func (p *MessagePort) Write(b []byte) (n int, err error) {
 	ab := array.NewFromSlice(b).ArrayBuffer()
-	messages := map[string]interface{}{"arr": ab}
-	transferables := []interface{}{ab}
+	messages := map[string]any{"arr": ab}
+	transferables := []any{ab}
 
 	if err := p.WriteMessage(messages, transferables); err != nil {
 		return 0, err
@@ -138,12 +138,12 @@ func (p *MessagePort) Close() error {
 	p.once.Do(func() {
 		p.err = io.ErrClosedPipe
 		close(p.done)
-		p.value.Call("postMessage", map[string]interface{}{"__eof": true})
+		p.value.Call("postMessage", map[string]any{"__eof": true})
 	})
 	return nil
 }
 
-func (p *MessagePort) onError(_ js.Value, args []js.Value) interface{} {
+func (p *MessagePort) onError(_ js.Value, args []js.Value) any {
 	go func() {
 		p.once.Do(func() {
 			p.err = js.Error{Value: args[0]}
@@ -153,7 +153,7 @@ func (p *MessagePort) onError(_ js.Value, args []js.Value) interface{} {
 	return nil
 }
 
-func (p *MessagePort) onMessage(_ js.Value, args []js.Value) interface{} {
+func (p *MessagePort) onMessage(_ js.Value, args []js.Value) any {
 	go func() {
 		data := args[0].Get("data")
 		eof := data.Get("__eof")
