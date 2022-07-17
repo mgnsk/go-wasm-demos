@@ -1,6 +1,3 @@
-//go:build js && wasm
-// +build js,wasm
-
 package main
 
 import (
@@ -19,7 +16,7 @@ import (
 	"github.com/mgnsk/go-wasm-demos/pkg/wrpc"
 )
 
-func generateChunks(w io.Writer, _ io.Reader) {
+func generateChunks(w io.Writer, _ io.Reader) error {
 	jsutil.ConsoleLog("2. worker")
 	writer := textproto.NewWriter(bufio.NewWriter(w))
 	defer writer.W.Flush()
@@ -44,9 +41,11 @@ func generateChunks(w io.Writer, _ io.Reader) {
 		// Block if necessary to to stay ahead only buffer duration.
 		tb.Add(chunkDuration)
 	}
+
+	return nil
 }
 
-func applyGain(w io.Writer, r io.Reader) {
+func applyGain(w io.Writer, r io.Reader) error {
 	jsutil.ConsoleLog("3. worker")
 	reader := textproto.NewReader(bufio.NewReader(r))
 	writer := textproto.NewWriter(bufio.NewWriter(w))
@@ -62,23 +61,29 @@ func applyGain(w io.Writer, r io.Reader) {
 		audio.Gain(&chunk, 0.5)
 		mustWriteChunk(dw, chunk)
 	})
+
+	return nil
 }
 
-func audioSource(w io.Writer, _ io.Reader) {
+func audioSource(w io.Writer, _ io.Reader) error {
 	jsutil.ConsoleLog("1. worker")
 	rr, _ := wrpc.Go("generateChunks", "applyGain")
 	if _, err := io.Copy(w, rr); err != nil {
 		panic(err)
 	}
+
+	return nil
 }
 
-func passThrough(w io.Writer, r io.Reader) {
+func passThrough(w io.Writer, r io.Reader) error {
 	jsutil.ConsoleLog("4. worker")
 	if n, err := io.Copy(w, r); err != nil {
 		panic(err)
 	} else if n == 0 {
 		panic("0 copy")
+
 	}
+	return nil
 }
 
 func main() {
@@ -98,11 +103,23 @@ func main() {
 }
 
 func browser() {
-	wg := &sync.WaitGroup{}
 	defer jsutil.ConsoleLog("Exiting main program")
-	defer wg.Wait()
 
-	startAudio()
+	var once sync.Once
+	done := make(chan struct{})
+
+	js.Global().Set("startAudio", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		once.Do(func() {
+			go func() {
+				defer close(done)
+				runAudio()
+			}()
+		})
+
+		return nil
+	}))
+
+	<-done
 }
 
 func forEachChunk(r io.Reader, cb func(audio.Chunk)) {
@@ -131,7 +148,7 @@ const (
 	bufferDuration = 200 * time.Millisecond
 )
 
-func startAudio() {
+func runAudio() {
 	// Master track reader.
 	r, _ := wrpc.Go("audioSource", "passThrough")
 	dr := textproto.NewReader(bufio.NewReader(r)).DotReader()
@@ -154,6 +171,6 @@ func startAudio() {
 		arrLeft := array.NewFromSlice(left)
 		arrRight := array.NewFromSlice(right)
 
-		player.Call("playNext", arrLeft.JSValue(), arrRight.JSValue())
+		player.Call("playNext", arrLeft.Value, arrRight.Value)
 	})
 }

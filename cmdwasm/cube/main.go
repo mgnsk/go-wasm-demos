@@ -1,6 +1,3 @@
-//go:build js && wasm
-// +build js,wasm
-
 package main
 
 import (
@@ -159,7 +156,7 @@ func main() {
 	fpsStats.Call("showPanel", 0)
 	js.Global().Get("document").Get("body").Call("appendChild", fpsStats.Get("dom"))
 
-	camera := gfx.NewCamera(
+	camera := gfx.NewPerspectiveCamera(
 		mgl32.Vec3{3.0, 3.0, 30},
 		mgl32.Vec3{0.0, 0.0, 0.0},
 		mgl32.Vec3{0.0, 1.0, 0.0},
@@ -170,30 +167,30 @@ func main() {
 
 	var keydown js.Func
 	keydown = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		rotateAmount := float32(0.1)
+		moveAmount := float32(1)
+		rollAmount := float32(0.1)
 		switch args[0].Get("code").String() {
 		case "ArrowUp":
-			camera.Rotate(gfx.RotateDown)
+			camera.Rotate(gfx.RotateUp, rotateAmount)
 		case "ArrowDown":
-			camera.Rotate(gfx.RotateUp)
+			camera.Rotate(gfx.RotateDown, rotateAmount)
 		case "ArrowLeft":
-			camera.Rotate(gfx.RotateLeft)
+			camera.Rotate(gfx.RotateLeft, rotateAmount)
 		case "ArrowRight":
-			camera.Rotate(gfx.RotateRight)
+			camera.Rotate(gfx.RotateRight, rotateAmount)
 		case "KeyW":
-			camera.Move(gfx.MoveForward)
+			camera.Move(gfx.MoveForward, moveAmount)
 		case "KeyS":
-			camera.Move(gfx.MoveBack)
+			camera.Move(gfx.MoveBack, moveAmount)
 		case "KeyA":
-			camera.Move(gfx.MoveLeft)
+			camera.Move(gfx.MoveLeft, moveAmount)
 		case "KeyD":
-			camera.Move(gfx.MoveRight)
+			camera.Move(gfx.MoveRight, moveAmount)
 		case "KeyQ":
-			camera.Roll(gfx.RollLeft)
+			camera.Roll(gfx.RollLeft, rollAmount)
 		case "KeyE":
-			camera.Roll(gfx.RollRight)
-
-		case "KeyP":
-			panic("KeyP pressed")
+			camera.Roll(gfx.RollRight, rollAmount)
 		}
 		// cb.Release() // release the function if the button will not be clicked again
 		return nil

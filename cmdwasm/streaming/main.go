@@ -1,6 +1,3 @@
-//go:build js && wasm
-// +build js,wasm
-
 package main
 
 import (
@@ -30,51 +27,53 @@ func main() {
 	}
 }
 
-func stringGeneratorWorker(w io.Writer, r io.Reader) {
+func stringGeneratorWorker(w io.Writer, r io.Reader) error {
 	fmt.Println("stated stringGeneratorWorker")
 
 	// decode args
 	dec := gob.NewDecoder(r)
 	var n int
 	if err := dec.Decode(&n); err != nil && err != io.EOF {
-		panic(err)
+		return err
 	}
 
 	fmt.Printf("Will generate %d strings\n", n)
 
 	bufOut := bufio.NewWriter(w)
-	defer bufOut.Flush()
 
-	for i := 0; i < int(n); i++ {
+	for i := 0; i < n; i++ {
 		str := "Data " + fmt.Sprintf("%f", rand.Float64()) + "\n"
 		if n, err := bufOut.WriteString(str); err != nil {
-			panic(err)
+			return err
 		} else if n == 0 {
-			panic("bufOut: 0 write")
+			return fmt.Errorf("bufOut: 0 write")
 		}
 		fmt.Printf("Generated %s\n", str)
 	}
+
+	return bufOut.Flush()
 }
 
-func upperCaseWorker(w io.Writer, r io.Reader) {
+func upperCaseWorker(w io.Writer, r io.Reader) error {
 	fmt.Println("started upperCaseWorker")
 
 	scanner := bufio.NewScanner(r)
 	bufOut := bufio.NewWriter(w)
-	defer bufOut.Flush()
 
 	for scanner.Scan() {
 		converted := strings.ToTitle(scanner.Text()) + "\n"
 		if n, err := bufOut.WriteString(converted); err != nil {
-			panic(err)
+			return err
 		} else if n == 0 {
-			panic("bufOut 0 write")
+			return fmt.Errorf("bufOut 0 write")
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		panic(err)
+		return err
 	}
+
+	return bufOut.Flush()
 }
 
 func rev(s string) string {
@@ -85,7 +84,7 @@ func rev(s string) string {
 	return string(runes)
 }
 
-func reverseWorker(w io.Writer, r io.Reader) {
+func reverseWorker(w io.Writer, r io.Reader) error {
 	fmt.Println("started reverseWorker")
 
 	scanner := bufio.NewScanner(r)
@@ -94,19 +93,21 @@ func reverseWorker(w io.Writer, r io.Reader) {
 	for scanner.Scan() {
 		reversed := rev(scanner.Text()) + "\n"
 		if n, err := bufOut.WriteString(reversed); err != nil {
-			panic(err)
+			return err
 		} else if n == 0 {
-			panic("bufOut 0 write")
+			return fmt.Errorf("bufOut 0 write")
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		panic(err)
+		return err
 	}
 
 	if err := bufOut.Flush(); err != nil {
-		panic(err)
+		return err
 	}
+
+	return fmt.Errorf("testing errors")
 }
 
 func browser() {
@@ -132,7 +133,12 @@ func browser() {
 		jsutil.ConsoleLog("Main thread received:", scanner.Text())
 	}
 
-	if err := scanner.Err(); err != nil {
-		panic(err)
+	err := scanner.Err()
+	if err == nil {
+		panic("expected error")
+	}
+
+	if err.Error() != "testing errors" {
+		panic("expected error")
 	}
 }

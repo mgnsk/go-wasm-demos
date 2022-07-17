@@ -1,10 +1,8 @@
-//go:build js && wasm
-// +build js,wasm
-
 package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"time"
@@ -16,11 +14,12 @@ import (
 func main() {
 	if jsutil.IsWorker() {
 		server := wrpc.NewServer().
-			WithFunc("call", func(io.Writer, io.Reader) {}).
-			WithFunc("echoBytes", func(w io.Writer, r io.Reader) {
+			WithFunc("call", func(io.Writer, io.Reader) error { return nil }).
+			WithFunc("echoBytes", func(w io.Writer, r io.Reader) error {
 				if _, err := io.Copy(w, r); err != nil {
-					panic(err)
+					panic(fmt.Errorf("echoBytes handler: %w", err))
 				}
+				return nil
 			})
 
 		if err := server.ListenAndServe(); err != nil {
