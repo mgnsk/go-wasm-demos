@@ -27,15 +27,11 @@ func (s *Server) WithFunc(name string, f WorkerFunc) *Server {
 
 // ListenAndServe runs the server on worker.
 func (s *Server) ListenAndServe() error {
-	if !jsutil.IsWorker() {
-		panic("server: must run in webworker environment")
-	}
-
 	port := NewMessagePort(js.Global())
 	defer port.Close()
 
 	// Notify the caller to start sending calls. We have established
-	// and event listener for the worker port.
+	// an event listener for the worker port.
 	if err := port.WriteMessage(map[string]interface{}{}, nil); err != nil {
 		return fmt.Errorf("server: error sending worker init ACK: %w", err)
 	}
@@ -47,15 +43,16 @@ func (s *Server) ListenAndServe() error {
 		}
 		switch {
 		case !data.Get("call").IsUndefined():
-			s.execute(data)
-		case !data.Get("__ping").IsUndefined():
+			if err := s.call(data); err != nil {
+				return err
+			}
 		default:
 			jsutil.ConsoleLog("server: invalid message", data)
 		}
 	}
 }
 
-func (s *Server) execute(data js.Value) {
+func (s *Server) call(data js.Value) error {
 	name := data.Get("call").String()
 	r := NewMessagePort(data.Get("r"))
 	w := NewMessagePort(data.Get("w"))
@@ -63,9 +60,12 @@ func (s *Server) execute(data js.Value) {
 
 	f, ok := s.funcs[name]
 	if !ok {
-		jsutil.ConsoleLog("server: WorkerFunc '%s' not found", name)
-		return
+		return fmt.Errorf("server: WorkerFunc '%s' not found", name)
 	}
 
-	f(w, r)
+	if err := f(w, r); err != nil {
+		return w.WriteError(err)
+	}
+
+	return nil
 }

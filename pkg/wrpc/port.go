@@ -1,6 +1,8 @@
 package wrpc
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -17,6 +19,7 @@ type MessagePort struct {
 	ack      chan struct{}
 	done     chan struct{}
 	once     sync.Once
+	readBuf  bytes.Buffer
 	err      error
 }
 
@@ -55,7 +58,7 @@ func NewMessagePort(value js.Value) *MessagePort {
 	return p
 }
 
-// Read a single message or error from the port.
+// ReadMessage reads a single message or error from the port.
 func (p *MessagePort) ReadMessage() (js.Value, error) {
 	select {
 	case <-p.done:
@@ -78,10 +81,25 @@ func (p *MessagePort) WriteMessage(messages map[string]interface{}, transferable
 	}
 }
 
+// WriteError writes an error message into the port.
+func (p *MessagePort) WriteError(err error) error {
+	return p.WriteMessage(map[string]interface{}{"__err": err.Error()}, nil)
+}
+
 // Read a byte array message from the port.
 func (p *MessagePort) Read(b []byte) (n int, err error) {
+	if p.readBuf.Len() > 0 {
+		n, err = p.readBuf.Read(b)
+		if err != nil && err != io.EOF {
+			return n, err
+		}
+
+		return n, nil
+	}
+
 	msg, err := p.ReadMessage()
 	if err != nil {
+		// EOF from here means that port was closed.
 		return 0, err
 	}
 
@@ -90,7 +108,16 @@ func (p *MessagePort) Read(b []byte) (n int, err error) {
 		return 0, fmt.Errorf("expected an ArrayBuffer message")
 	}
 
-	return array.NewReader(arr).Read(b)
+	if _, err := io.Copy(&p.readBuf, array.NewReader(arr)); err != nil {
+		return 0, err
+	}
+
+	n, err = p.readBuf.Read(b)
+	if err != nil && err != io.EOF {
+		return n, err
+	}
+
+	return n, nil
 }
 
 // Write a byte array message into the port.
@@ -129,13 +156,21 @@ func (p *MessagePort) onError(_ js.Value, args []js.Value) interface{} {
 func (p *MessagePort) onMessage(_ js.Value, args []js.Value) interface{} {
 	go func() {
 		data := args[0].Get("data")
+		eof := data.Get("__eof")
+		err := data.Get("__err")
+		ack := data.Get("__ack")
 		switch {
-		case !data.Get("__eof").IsUndefined():
+		case !eof.IsUndefined():
 			p.once.Do(func() {
 				p.err = io.EOF
 				close(p.done)
 			})
-		case !data.Get("__ack").IsUndefined():
+		case !err.IsUndefined():
+			p.once.Do(func() {
+				p.err = errors.New(err.String())
+				close(p.done)
+			})
+		case !ack.IsUndefined():
 			select {
 			case <-p.done:
 			case p.ack <- struct{}{}:

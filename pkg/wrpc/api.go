@@ -7,7 +7,7 @@ import (
 
 // WorkerFunc is a function that can be
 // executed on a worker by its string name.
-type WorkerFunc func(io.Writer, io.Reader)
+type WorkerFunc func(io.Writer, io.Reader) error
 
 // Go acquires workers and executes WorkerFuncs in order by
 // piping each worker into the next.
@@ -15,7 +15,8 @@ type WorkerFunc func(io.Writer, io.Reader)
 // The returned WriteCloser is piped to the first func's Reader and
 // the returned Reader is piped from the last func's Writer.
 //
-// When all funcs are finished, the returned io.Reader returns io.EOF.
+// The returned Reader returns the first error from any WorkerFunc
+// or io.EOF when all functions finish.
 func Go(funcs ...string) (io.Reader, io.WriteCloser) {
 	remoteReader, localWriter := Pipe()
 
@@ -28,7 +29,7 @@ func Go(funcs ...string) (io.Reader, io.WriteCloser) {
 
 		worker := pool.Get().(*Worker)
 		go func() {
-			if err := worker.Execute(w, r, name); err != nil {
+			if err := worker.Call(w, r, name); err != nil {
 				panic(err)
 			}
 			pool.Put(worker)

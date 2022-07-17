@@ -17,8 +17,8 @@ func (wk *Worker) Close() {
 	wk.worker.Call("terminate")
 }
 
-// Execute synchronously executes a remote call on the worker.
-func (wk *Worker) Execute(w, r *MessagePort, name string) error {
+// Call synchronously executes a remote call on the worker.
+func (wk *Worker) Call(w, r *MessagePort, name string) error {
 	messages := map[string]interface{}{
 		"call": name,
 		"w":    w.value,
@@ -34,11 +34,7 @@ func (wk *Worker) Execute(w, r *MessagePort, name string) error {
 	}
 
 	if err := wk.port.WriteMessage(messages, transferables); err != nil {
-		return fmt.Errorf("error sending call: %w", err)
-	}
-
-	if err := wk.port.WriteMessage(map[string]interface{}{"__ping": true}, nil); err != nil {
-		return fmt.Errorf("error pinging worker: %w", err)
+		return fmt.Errorf("error calling worker: %w", err)
 	}
 
 	return nil
