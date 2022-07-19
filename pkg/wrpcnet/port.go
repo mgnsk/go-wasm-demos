@@ -1,4 +1,4 @@
-package wrpc
+package wrpcnet
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 
 // MessagePort is a synchronous JS MessagePort wrapper.
 type MessagePort struct {
-	value    js.Value
+	Value    js.Value
 	messages chan js.Value
 	ack      chan struct{}
 	done     chan struct{}
@@ -34,7 +34,7 @@ func Pipe() (*MessagePort, *MessagePort) {
 // NewMessagePort creates a synchronous JS MessagePort wrapper.
 func NewMessagePort(value js.Value) *MessagePort {
 	p := &MessagePort{
-		value:    value,
+		Value:    value,
 		messages: make(chan js.Value),
 		ack:      make(chan struct{}),
 		done:     make(chan struct{}),
@@ -49,7 +49,7 @@ func NewMessagePort(value js.Value) *MessagePort {
 	value.Set("onmessage", onMessage)
 
 	runtime.SetFinalizer(p, func(port any) {
-		port.(*MessagePort).value.Call("close")
+		port.(*MessagePort).Value.Call("close")
 		onError.Release()
 		onMessageError.Release()
 		onMessage.Release()
@@ -64,7 +64,7 @@ func (p *MessagePort) ReadMessage() (js.Value, error) {
 	case <-p.done:
 		return js.Value{}, p.err
 	case msg := <-p.messages:
-		p.value.Call("postMessage", map[string]any{"__ack": true})
+		p.Value.Call("postMessage", map[string]any{"__ack": true})
 		return msg, nil
 	}
 }
@@ -72,7 +72,7 @@ func (p *MessagePort) ReadMessage() (js.Value, error) {
 // WriteMessage writes a messages into the port.
 // It blocks until the remote side reads the message.
 func (p *MessagePort) WriteMessage(messages map[string]any, transferables []any) error {
-	p.value.Call("postMessage", messages, transferables)
+	p.Value.Call("postMessage", messages, transferables)
 	select {
 	case <-p.done:
 		return p.err
@@ -138,7 +138,7 @@ func (p *MessagePort) Close() error {
 	p.once.Do(func() {
 		p.err = io.ErrClosedPipe
 		close(p.done)
-		p.value.Call("postMessage", map[string]any{"__eof": true})
+		p.Value.Call("postMessage", map[string]any{"__eof": true})
 	})
 	return nil
 }

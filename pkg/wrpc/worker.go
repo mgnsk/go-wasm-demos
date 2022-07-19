@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"runtime"
 	"syscall/js"
+
+	"github.com/mgnsk/go-wasm-demos/pkg/wrpcnet"
 )
 
 // Worker is a Web Worker wrapper.
 type Worker struct {
 	worker js.Value
-	port   *MessagePort
+	port   *wrpcnet.MessagePort
 }
 
 // Close the worker.
@@ -18,26 +20,22 @@ func (wk *Worker) Close() {
 }
 
 // Call synchronously executes a remote call on the worker.
-func (wk *Worker) Call(w, r *MessagePort, name string) error {
+func (wk *Worker) Call(w, r *wrpcnet.MessagePort, name string) error {
 	messages := map[string]any{
 		"call": name,
-		"w":    w.value,
-		"r":    r.value,
+		"w":    w.Value,
+		"r":    r.Value,
 	}
 
 	var transferables []any
 
 	if r == w {
-		transferables = []any{w.value}
+		transferables = []any{w.Value}
 	} else {
-		transferables = []any{w.value, r.value}
+		transferables = []any{w.Value, r.Value}
 	}
 
-	if err := wk.port.WriteMessage(messages, transferables); err != nil {
-		return fmt.Errorf("error calling worker: %w", err)
-	}
-
-	return nil
+	return wk.port.WriteMessage(messages, transferables)
 }
 
 // NewWorker spawns a worker.
@@ -46,7 +44,7 @@ func NewWorker(url string) (*Worker, error) {
 
 	newWorker := &Worker{
 		worker: worker,
-		port:   NewMessagePort(worker),
+		port:   wrpcnet.NewMessagePort(worker),
 	}
 
 	// Wait for the worker to be ready.

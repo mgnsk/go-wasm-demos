@@ -5,11 +5,12 @@ import (
 	"syscall/js"
 
 	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/wrpcnet"
 )
 
 // ListenAndServe runs the server on worker.
 func ListenAndServe() error {
-	port := NewMessagePort(js.Global())
+	port := wrpcnet.NewMessagePort(js.Global())
 	defer port.Close()
 
 	// Notify the caller to start sending calls. We have established
@@ -36,13 +37,13 @@ func ListenAndServe() error {
 
 func call(data js.Value) error {
 	name := data.Get("call").String()
-	r := NewMessagePort(data.Get("r"))
-	w := NewMessagePort(data.Get("w"))
+	r := wrpcnet.NewMessagePort(data.Get("r"))
+	w := wrpcnet.NewMessagePort(data.Get("w"))
 	defer w.Close()
 
 	f, ok := funcs[name]
 	if !ok {
-		return fmt.Errorf("server: WorkerFunc '%s' not found", name)
+		return fmt.Errorf("server: remote func '%s' not found", name)
 	}
 
 	if err := f(w, r); err != nil {

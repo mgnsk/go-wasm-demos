@@ -4,33 +4,26 @@ import (
 	"io"
 	"sync"
 
-	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
+	"github.com/mgnsk/go-wasm-demos/pkg/wrpcnet"
 )
 
-// WorkerFunc is a streaming remote function.
-type WorkerFunc func(io.Writer, io.Reader) error
-
-// Register a remote function on a worker.
-func Register(name string, f WorkerFunc) {
-	if !jsutil.IsWorker() {
-		panic("Register must be called on a worker")
-	}
+// Register registers a remote function.
+func Register(name string, f func(io.Writer, io.Reader) error) {
 	funcs[name] = f
 }
 
-// Call acquires workers and executes streaming functions in order by
-// piping each worker into the next.
+// Call executes functions by chaining them and piping each function's output into the next.
 //
 // The returned WriteCloser is piped to the first func's Reader and
 // the returned Reader is piped from the last func's Writer.
 //
-// The returned Reader returns the first error from any WorkerFunc
+// The returned Reader returns the first error from any function
 // or io.EOF when all functions finish.
 func Call(names ...string) (io.Reader, io.WriteCloser) {
-	remoteReader, localWriter := Pipe()
+	remoteReader, localWriter := wrpcnet.Pipe()
 
 	for _, name := range names {
-		p1, p2 := Pipe()
+		p1, p2 := wrpcnet.Pipe()
 
 		w := p1
 		r := remoteReader
@@ -60,4 +53,4 @@ var pool = sync.Pool{
 	},
 }
 
-var funcs = map[string]WorkerFunc{}
+var funcs = map[string]func(io.Writer, io.Reader) error{}
