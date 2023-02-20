@@ -28,5 +28,6 @@ func Decode[E constraints.Integer | constraints.Float](target *[]E, b []byte) {
 	h.Len = bh.Len / int(unsafe.Sizeof(E(0)))
 	h.Cap = bh.Cap / int(unsafe.Sizeof(E(0)))
 
+	runtime.KeepAlive(target)
 	runtime.KeepAlive(b)
 }

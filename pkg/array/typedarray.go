@@ -1,62 +1,12 @@
 package array
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"syscall/js"
 
 	"golang.org/x/exp/constraints"
 )
-
-type reader struct {
-	ab  js.Value
-	buf *bytes.Buffer
-	eof bool
-}
-
-func (r *reader) Read(b []byte) (int, error) {
-	if r.eof {
-		return 0, io.EOF
-	}
-
-	if r.buf != nil {
-		return r.buf.Read(b)
-	}
-
-	abLen := r.ab.Get("byteLength").Int()
-	view := js.Global().Get("Uint8Array").New(r.ab)
-
-	if len(b) >= abLen {
-		// Can fit exactly.
-		n := js.CopyBytesToGo(b, view)
-		if n != abLen {
-			return n, io.ErrUnexpectedEOF
-		}
-
-		r.eof = true
-
-		return n, nil
-	}
-
-	// Not enough room.
-	buf := make([]byte, abLen)
-	n := js.CopyBytesToGo(buf, view)
-	if n != abLen {
-		return n, io.ErrUnexpectedEOF
-	}
-
-	r.buf = bytes.NewBuffer(buf)
-
-	return r.buf.Read(b)
-}
-
-// NewReader returns a buffered io.Reader for ArrayBuffer.
-func NewReader(ab js.Value) io.Reader {
-	return &reader{
-		ab: ab,
-	}
-}
 
 // TypedArray is a JS TypedArray.
 type TypedArray struct {
@@ -156,10 +106,14 @@ func (a TypedArray) ArrayBuffer() js.Value {
 
 // Bytes copies bytes from the underlying ArrayBuffer.
 func (a TypedArray) Bytes() []byte {
-	b := make([]byte, a.ByteLength())
-	if _, err := NewReader(a.ArrayBuffer()).Read(b); err != nil {
-		panic(err)
+	view := NewUint8Array(a.ArrayBuffer())
+	b := make([]byte, view.Len())
+
+	n := js.CopyBytesToGo(b, view.Value)
+	if n != len(b) {
+		panic(io.ErrShortWrite)
 	}
+
 	return b
 }
 
