@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -49,18 +49,23 @@ func browser() {
 	dur := 2 * time.Second
 
 	for size := initialSize; size <= maxSize; size *= 2 {
+		payload := bytes.Repeat([]byte{1}, size)
+
 		r, w := wrpc.Call("echoBytes")
+
 		go func() {
-			defer w.Close()
-			rd := bufio.NewReaderSize(byteGenerator{}, size)
 			start := time.Now()
-			for {
-				if time.Since(start) > dur {
-					return
-				}
-				if _, err := io.CopyN(w, rd, int64(size)); err != nil {
+
+			for time.Since(start) < dur {
+				if n, err := w.Write(payload); err != nil {
 					panic(err)
+				} else if n != size {
+					panic(io.ErrShortWrite)
 				}
+			}
+
+			if err := w.Close(); err != nil {
+				panic(err)
 			}
 		}()
 
@@ -73,39 +78,39 @@ func browser() {
 		jsutil.ConsoleLog("echoBytes %dK: MB/s:", size/1024, mps)
 	}
 
-	jsutil.ConsoleLog("running call benchmark")
-
-	initialConcurrency := 1
-	maxConcurrency := 32
-
-	for concurrency := initialConcurrency; concurrency <= maxConcurrency; concurrency *= 2 {
-		start := time.Now()
-		result := make(chan float64)
-		for i := 0; i < concurrency; i++ {
-			go func() {
-				n := 0
-				for {
-					if d := time.Since(start); d > 2*time.Second {
-						ops := float64(n) / d.Seconds()
-						result <- ops
-						break
-					}
-					r, _ := wrpc.Call("call")
-					if _, err := ioutil.ReadAll(r); err != nil && err != io.EOF {
-						panic(err)
-					}
-					n++
-				}
-			}()
-		}
-
-		var ops float64
-		for i := 0; i < concurrency; i++ {
-			ops += <-result
-		}
-
-		jsutil.ConsoleLog("call: concurency %d: ops:", concurrency, ops)
-	}
+	// jsutil.ConsoleLog("running call benchmark")
+	//
+	// initialConcurrency := 1
+	// maxConcurrency := 32
+	//
+	// for concurrency := initialConcurrency; concurrency <= maxConcurrency; concurrency *= 2 {
+	// 	start := time.Now()
+	// 	result := make(chan float64)
+	// 	for i := 0; i < concurrency; i++ {
+	// 		go func() {
+	// 			n := 0
+	// 			for {
+	// 				if d := time.Since(start); d > 2*time.Second {
+	// 					ops := float64(n) / d.Seconds()
+	// 					result <- ops
+	// 					break
+	// 				}
+	// 				r, _ := wrpc.Call("call")
+	// 				if _, err := r.Read(nil); err != nil && err != io.EOF {
+	// 					panic(err)
+	// 				}
+	// 				n++
+	// 			}
+	// 		}()
+	// 	}
+	//
+	// 	var ops float64
+	// 	for i := 0; i < concurrency; i++ {
+	// 		ops += <-result
+	// 	}
+	//
+	// 	jsutil.ConsoleLog("call: concurency %d: ops:", concurrency, ops)
+	// }
 
 	jsutil.ConsoleLog("benchmark done")
 }

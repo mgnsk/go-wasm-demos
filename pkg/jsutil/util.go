@@ -16,7 +16,10 @@ func CreateURLObject(data any, mime string) js.Value {
 	return js.Global().Get("URL").Call("createObjectURL", blob)
 }
 
+var console = js.Global().Get("console")
+
 // ConsoleLog console.log
 func ConsoleLog(args ...any) {
-	js.Global().Get("console").Call("log", args...)
+	// js.Global().Get("console").Call("log", args...)
+	console.Call("log", args...)
 }

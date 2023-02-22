@@ -2,7 +2,6 @@ package array
 
 import (
 	"fmt"
-	"io"
 	"syscall/js"
 
 	"golang.org/x/exp/constraints"
@@ -104,17 +103,17 @@ func (a TypedArray) ArrayBuffer() js.Value {
 	return a.Get("buffer")
 }
 
-// Bytes copies bytes from the underlying ArrayBuffer.
-func (a TypedArray) Bytes() []byte {
-	view := NewUint8Array(a.ArrayBuffer())
-	b := make([]byte, view.Len())
+// CopyBytesToGo copies bytes from the underlying ArrayBuffer to dst.
+func (a TypedArray) CopyBytesToGo(dst []byte) int {
+	var view TypedArray
 
-	n := js.CopyBytesToGo(b, view.Value)
-	if n != len(b) {
-		panic(io.ErrShortWrite)
+	if a.Type() == "Uint8Array" {
+		view = a
+	} else {
+		view = NewUint8Array(a.ArrayBuffer())
 	}
 
-	return b
+	return js.CopyBytesToGo(dst, view.Value)
 }
 
 // Len returns the length of the array.

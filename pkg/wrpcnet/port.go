@@ -1,26 +1,23 @@
 package wrpcnet
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"runtime"
-	"sync"
 	"syscall/js"
 
 	"github.com/mgnsk/go-wasm-demos/pkg/array"
+	"github.com/mgnsk/go-wasm-demos/pkg/jsutil"
 )
 
 // MessagePort is a synchronous JS MessagePort wrapper.
 type MessagePort struct {
-	Value    js.Value
-	messages chan js.Value
-	ack      chan struct{}
-	done     chan struct{}
-	once     sync.Once
-	readBuf  bytes.Buffer
-	err      error
+	Value     js.Value
+	isReadEOF bool
+	messages  chan js.Value
+	ack       chan struct{}
+	done      chan struct{}
+	err       error
 }
 
 // Pipe returns a synchronous duplex MessagePort pipe.
@@ -35,8 +32,8 @@ func Pipe() (*MessagePort, *MessagePort) {
 func NewMessagePort(value js.Value) *MessagePort {
 	p := &MessagePort{
 		Value:    value,
-		messages: make(chan js.Value),
-		ack:      make(chan struct{}),
+		messages: make(chan js.Value, 1),
+		ack:      make(chan struct{}, 1),
 		done:     make(chan struct{}),
 	}
 
@@ -48,8 +45,7 @@ func NewMessagePort(value js.Value) *MessagePort {
 	value.Set("onmessageerror", onMessageError)
 	value.Set("onmessage", onMessage)
 
-	runtime.SetFinalizer(p, func(port any) {
-		port.(*MessagePort).Value.Call("close")
+	runtime.SetFinalizer(p, func(any) {
 		onError.Release()
 		onMessageError.Release()
 		onMessage.Release()
@@ -65,6 +61,7 @@ func (p *MessagePort) ReadMessage() (js.Value, error) {
 		return js.Value{}, p.err
 	case msg := <-p.messages:
 		p.Value.Call("postMessage", map[string]any{"__ack": true})
+		jsutil.ConsoleLog("readMessage", msg)
 		return msg, nil
 	}
 }
@@ -75,49 +72,33 @@ func (p *MessagePort) WriteMessage(messages map[string]any, transferables []any)
 	p.Value.Call("postMessage", messages, transferables)
 	select {
 	case <-p.done:
+		// jsutil.ConsoleLog("postMessage error", p.err.Error())
 		return p.err
 	case <-p.ack:
+		jsutil.ConsoleLog("postMessage ack")
 		return nil
 	}
 }
 
-// WriteError writes an error message into the port.
-func (p *MessagePort) WriteError(err error) error {
-	return p.WriteMessage(map[string]any{"__err": err.Error()}, nil)
-}
-
 // Read a byte array message from the port.
 func (p *MessagePort) Read(b []byte) (n int, err error) {
-	if p.readBuf.Len() > 0 {
-		n, err = p.readBuf.Read(b)
-		if err != nil && err != io.EOF {
-			return n, err
-		}
-
-		return n, nil
-	}
-
 	msg, err := p.ReadMessage()
 	if err != nil {
-		// EOF from here means that port was closed.
 		return 0, err
 	}
 
-	arr := msg.Get("arr")
-	if arr.IsUndefined() {
-		return 0, fmt.Errorf("expected an ArrayBuffer message")
+	ab := msg.Get("arr")
+	if ab.IsUndefined() {
+		return 0, errors.New("expected an ArrayBuffer message")
 	}
 
-	if _, err := io.Copy(&p.readBuf, array.NewReader(arr)); err != nil {
-		return 0, err
+	arr := array.NewUint8Array(ab)
+	if arr.Len() > len(b) {
+		p.messages <- msg
+		return 0, io.ErrShortBuffer
 	}
 
-	n, err = p.readBuf.Read(b)
-	if err != nil && err != io.EOF {
-		return n, err
-	}
-
-	return n, nil
+	return arr.CopyBytesToGo(b), nil
 }
 
 // Write a byte array message into the port.
@@ -135,52 +116,61 @@ func (p *MessagePort) Write(b []byte) (n int, err error) {
 
 // Close the port. All pending reads and writes are unblocked and return io.ErrClosedPipe.
 func (p *MessagePort) Close() error {
-	p.once.Do(func() {
-		p.err = io.ErrClosedPipe
-		close(p.done)
-		p.Value.Call("postMessage", map[string]any{"__eof": true})
-	})
+	p.err = io.ErrClosedPipe
+	close(p.done)
+	p.Value.Call("postMessage", map[string]any{"__eof": true})
+	p.Value.Call("close")
 	return nil
+}
+
+// CloseWithError writes an error message into the port and closes the port.
+// All pending reads and writes are unblocked and return io.ErrClosedPipe.
+func (p *MessagePort) CloseWithError(err error) {
+	p.err = io.ErrClosedPipe
+	close(p.done)
+	p.Value.Call("postMessage", map[string]any{"__err": err.Error()})
+	p.Value.Call("close")
 }
 
 func (p *MessagePort) onError(_ js.Value, args []js.Value) any {
-	go func() {
-		p.once.Do(func() {
-			p.err = js.Error{Value: args[0]}
-			close(p.done)
-		})
-	}()
+	if p.err == nil {
+		p.err = js.Error{Value: args[0]}
+		close(p.done)
+	}
 	return nil
 }
 
-func (p *MessagePort) onMessage(_ js.Value, args []js.Value) any {
-	go func() {
-		data := args[0].Get("data")
-		eof := data.Get("__eof")
-		err := data.Get("__err")
-		ack := data.Get("__ack")
-		switch {
-		case !eof.IsUndefined():
-			p.once.Do(func() {
-				p.err = io.EOF
-				close(p.done)
-			})
-		case !err.IsUndefined():
-			p.once.Do(func() {
-				p.err = errors.New(err.String())
-				close(p.done)
-			})
-		case !ack.IsUndefined():
-			select {
-			case <-p.done:
-			case p.ack <- struct{}{}:
-			}
-		default:
-			select {
-			case <-p.done:
-			case p.messages <- data:
-			}
+func (p *MessagePort) onMessage(this js.Value, args []js.Value) any {
+	data := args[0].Get("data")
+	eof := data.Get("__eof")
+	err := data.Get("__err")
+	ack := data.Get("__ack")
+
+	switch {
+	case !eof.IsUndefined():
+		if p.err == nil {
+			p.err = io.EOF
+			close(p.done)
 		}
-	}()
+
+	case !err.IsUndefined():
+		if p.err == nil {
+			p.err = errors.New(err.String())
+			close(p.done)
+		}
+
+	case !ack.IsUndefined():
+		select {
+		case <-p.done:
+		case p.ack <- struct{}{}:
+		}
+
+	default:
+		select {
+		case <-p.done:
+		case p.messages <- data:
+		}
+	}
+
 	return nil
 }

@@ -7,8 +7,11 @@ import (
 	"github.com/mgnsk/go-wasm-demos/pkg/wrpcnet"
 )
 
+// HandlerFunc is a remote function.
+type HandlerFunc func(io.Writer, io.Reader) error
+
 // Register registers a remote function.
-func Register(name string, f func(io.Writer, io.Reader) error) {
+func Register(name string, f HandlerFunc) {
 	funcs[name] = f
 }
 
@@ -53,4 +56,4 @@ var pool = sync.Pool{
 	},
 }
 
-var funcs = map[string]func(io.Writer, io.Reader) error{}
+var funcs = map[string]HandlerFunc{}

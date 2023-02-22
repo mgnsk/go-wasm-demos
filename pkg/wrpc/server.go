@@ -13,8 +13,6 @@ func ListenAndServe() error {
 	port := wrpcnet.NewMessagePort(js.Global())
 	defer port.Close()
 
-	// Notify the caller to start sending calls. We have established
-	// an event listener for the worker port.
 	if err := port.WriteMessage(map[string]any{}, nil); err != nil {
 		return fmt.Errorf("server: error sending worker init ACK: %w", err)
 	}
@@ -24,31 +22,28 @@ func ListenAndServe() error {
 		if err != nil {
 			return fmt.Errorf("server: error reading from port: %w", err)
 		}
+
+		call := data.Get("call")
 		switch {
-		case !data.Get("call").IsUndefined():
-			if err := call(data); err != nil {
-				return err
+		case !call.IsUndefined():
+			name := data.Get("call").String()
+			f, ok := funcs[name]
+			if !ok {
+				fmt.Printf("server: remote func '%s' not found\n", name)
+				continue
 			}
+
+			r := wrpcnet.NewMessagePort(data.Get("r"))
+			w := wrpcnet.NewMessagePort(data.Get("w"))
+
+			if err := f(w, r); err != nil {
+				w.CloseWithError(err)
+			} else {
+				w.Close()
+			}
+
 		default:
 			jsutil.ConsoleLog("server: invalid message", data)
 		}
 	}
-}
-
-func call(data js.Value) error {
-	name := data.Get("call").String()
-	r := wrpcnet.NewMessagePort(data.Get("r"))
-	w := wrpcnet.NewMessagePort(data.Get("w"))
-	defer w.Close()
-
-	f, ok := funcs[name]
-	if !ok {
-		return fmt.Errorf("server: remote func '%s' not found", name)
-	}
-
-	if err := f(w, r); err != nil {
-		return w.WriteError(err)
-	}
-
-	return nil
 }

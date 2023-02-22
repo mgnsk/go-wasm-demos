@@ -42,10 +42,8 @@ func stringGeneratorWorker(w io.Writer, r io.Reader) error {
 
 	for i := 0; i < n; i++ {
 		str := "Data " + fmt.Sprintf("%f", rand.Float64()) + "\n"
-		if n, err := bufOut.WriteString(str); err != nil {
+		if _, err := bufOut.WriteString(str); err != nil {
 			return err
-		} else if n == 0 {
-			return fmt.Errorf("bufOut: 0 write")
 		}
 		fmt.Printf("Generated %s\n", str)
 	}
@@ -61,10 +59,8 @@ func upperCaseWorker(w io.Writer, r io.Reader) error {
 
 	for scanner.Scan() {
 		converted := strings.ToTitle(scanner.Text()) + "\n"
-		if n, err := bufOut.WriteString(converted); err != nil {
+		if _, err := bufOut.WriteString(converted); err != nil {
 			return err
-		} else if n == 0 {
-			return fmt.Errorf("bufOut 0 write")
 		}
 	}
 
@@ -91,10 +87,8 @@ func reverseWorker(w io.Writer, r io.Reader) error {
 
 	for scanner.Scan() {
 		reversed := rev(scanner.Text()) + "\n"
-		if n, err := bufOut.WriteString(reversed); err != nil {
+		if _, err := bufOut.WriteString(reversed); err != nil {
 			return err
-		} else if n == 0 {
-			return fmt.Errorf("bufOut 0 write")
 		}
 	}
 
@@ -132,12 +126,14 @@ func browser() {
 		jsutil.ConsoleLog("Main thread received:", scanner.Text())
 	}
 
+	// TODO
 	err := scanner.Err()
 	if err == nil {
 		panic("expected error")
 	}
 
+	fmt.Println(err.Error())
 	if err.Error() != "testing errors" {
-		panic("expected error")
+		panic("expected testing error")
 	}
 }

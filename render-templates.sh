@@ -4,7 +4,7 @@ set -eo pipefail
 
 root=$1
 
-wasmExecJSPath="$GOROOT/misc/wasm/wasm_exec.js"
+wasmExecJSPath="$(go env GOROOT)/misc/wasm/wasm_exec.js"
 
 echo "# Generating public dirs..."
 

@@ -37,8 +37,12 @@ tasks:
     args:
       pkg:
         usage: Package
+    options:
+      goroot:
+        default:
+          command: go env GOROOT
     run:
       - set-environment:
           GOOS: js
           GOARCH: wasm
-      - command: go test -v -count=1 -exec="env --ignore-environment ${GOROOT}/misc/wasm/go_js_wasm_exec" ${pkg}
+      - command: go test -v -count=1 -exec="env --ignore-environment ${goroot}/misc/wasm/go_js_wasm_exec" ${pkg}
