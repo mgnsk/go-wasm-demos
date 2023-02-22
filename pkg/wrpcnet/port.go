@@ -1,6 +1,7 @@
 package wrpcnet
 
 import (
+	"container/list"
 	"errors"
 	"io"
 	"runtime"
@@ -12,12 +13,12 @@ import (
 
 // MessagePort is a synchronous JS MessagePort wrapper.
 type MessagePort struct {
-	Value     js.Value
-	isReadEOF bool
-	messages  chan js.Value
-	ack       chan struct{}
-	done      chan struct{}
-	err       error
+	Value    js.Value
+	messages *list.List
+	notify   chan struct{}
+	ack      chan struct{}
+	done     chan struct{}
+	err      error
 }
 
 // Pipe returns a synchronous duplex MessagePort pipe.
@@ -32,8 +33,9 @@ func Pipe() (*MessagePort, *MessagePort) {
 func NewMessagePort(value js.Value) *MessagePort {
 	p := &MessagePort{
 		Value:    value,
-		messages: make(chan js.Value, 1),
-		ack:      make(chan struct{}, 1),
+		messages: list.New(),
+		notify:   make(chan struct{}),
+		ack:      make(chan struct{}),
 		done:     make(chan struct{}),
 	}
 
@@ -59,9 +61,12 @@ func (p *MessagePort) ReadMessage() (js.Value, error) {
 	select {
 	case <-p.done:
 		return js.Value{}, p.err
-	case msg := <-p.messages:
+	case <-p.notify:
 		p.Value.Call("postMessage", map[string]any{"__ack": true})
+
+		msg := p.messages.Remove(p.messages.Front()).(js.Value)
 		jsutil.ConsoleLog("readMessage", msg)
+
 		return msg, nil
 	}
 }
@@ -89,12 +94,13 @@ func (p *MessagePort) Read(b []byte) (n int, err error) {
 
 	ab := msg.Get("arr")
 	if ab.IsUndefined() {
-		return 0, errors.New("expected an ArrayBuffer message")
+		panic("expected an ArrayBuffer message")
 	}
 
 	arr := array.NewUint8Array(ab)
 	if arr.Len() > len(b) {
-		p.messages <- msg
+		p.messages.PushFront(msg)
+
 		return 0, io.ErrShortBuffer
 	}
 
@@ -160,16 +166,22 @@ func (p *MessagePort) onMessage(this js.Value, args []js.Value) any {
 		}
 
 	case !ack.IsUndefined():
-		select {
-		case <-p.done:
-		case p.ack <- struct{}{}:
-		}
+		go func() {
+			select {
+			case <-p.done:
+			case p.ack <- struct{}{}:
+			}
+		}()
 
 	default:
-		select {
-		case <-p.done:
-		case p.messages <- data:
-		}
+		p.messages.PushBack(data)
+
+		go func() {
+			select {
+			case <-p.done:
+			case p.notify <- struct{}{}:
+			}
+		}()
 	}
 
 	return nil
