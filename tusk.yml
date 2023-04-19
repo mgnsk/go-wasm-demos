@@ -32,6 +32,7 @@ tasks:
           GOARCH: amd64
       - command: go run cmd/serve/main.go $(pwd)/public
 
+  # TODO: needs go development version: https://github.com/golang/go/commit/3875258f971ce534262020c8342e70226b770d95
   test.node:
     usage: Run tests on nodejs.
     args:
